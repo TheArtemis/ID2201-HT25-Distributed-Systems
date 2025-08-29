@@ -9,26 +9,25 @@ receive_ping() ->
         {From, ping} ->
             io:format("Received ping from: ~p~n", [From]),
             io:format("Sending back pong to: ~p~n", [From]),
-            From ! {self(), ping}
+            From ! {self(), pong}
     end.
 
 % remote procedure call
 rpc(Pid, Request) ->
     Pid ! {self(), Request},
     receive
-        Response ->
+        % Should be Pid to make sure that the source is the same as the one where we sent it
+        {_, Response} ->
             Response
     end.
 
 send_ping(To) ->
+    io:format("Sent ping! ~n"),
     Response = rpc(To, ping),
-    {From, ping} = Response,
-    io:format("Received ping back from: ~p~n", [From]).
+    io:format("Received ~p back from: ~p~n", [Response, To]).
 
-% Pid = spawn(ping, receive_ping, [])
+% register(server, spawn(ping, receive_ping, [])).
 
-% register(ping, Pid).
-
-% ping:send_ping({ping, server@DORORO}). 
+% ping:send_ping({server, server@DORORO}). 
 
 % for a distributed application we need to specify the {process, node}

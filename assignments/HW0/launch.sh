@@ -33,8 +33,8 @@ fi
 echo -e "${GREEN}✅ Compilation successful!${NC}"
 
 # Create startup commands for server and client
-SERVER_CMD="cd '$CURRENT_DIR' && erl -setcookie 1234 -sname server"
-CLIENT_CMD="cd '$CURRENT_DIR' && erl -setcookie 1234 -sname client"
+SERVER_CMD="cd '$CURRENT_DIR' && erl -pa '$CURRENT_DIR/bin' -setcookie 1234 -sname server"
+CLIENT_CMD="cd '$CURRENT_DIR' && erl -pa '$CURRENT_DIR/bin' -setcookie 1234 -sname client"
 
 echo ""
 echo -e "${PURPLE}${BOLD}=== 🚀 Starting Erlang nodes automatically ===${NC}"
