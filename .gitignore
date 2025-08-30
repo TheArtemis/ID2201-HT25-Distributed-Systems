@@ -1,2 +1,3 @@
 # Ignore Erlang compiled files
 *.beam
+*.dump

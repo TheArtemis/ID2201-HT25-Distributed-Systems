@@ -2,6 +2,8 @@
 -export([init/1, request/1]).
 -export([start/1, stop/0]).
 
+-define(HANDLING_TIME, 40).
+
 init(Port) ->
     Opt = [list, {active, false}, {reuseaddr, true}],
     case gen_tcp:listen(Port, Opt) of
@@ -34,7 +36,7 @@ request(Client) ->
             io:format("Received Body: ~p~n", [Body]),
 
             io:format("=== END OF HTTP REQUEST ===~n"),
-            Response = reply({Request, Headers, Body}),
+            Response = reply_handle({Request, Headers, Body}),
             gen_tcp:send(Client, Response);
         {error, Error} ->
             io:format("rudy: error: ~w~n", [Error])
@@ -42,6 +44,10 @@ request(Client) ->
     gen_tcp:close(Client).
 
 reply({{get, URI, _}, _, _}) ->
+    http:ok("You requested the URI: " ++ URI).
+
+reply_handle({{get, URI, _}, _, _}) ->
+    timer:sleep(?HANDLING_TIME),
     http:ok("You requested the URI: " ++ URI).
 
 start(Port) ->
