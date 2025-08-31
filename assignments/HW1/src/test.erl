@@ -1,11 +1,53 @@
 -module(test).
--export([bench/2]).
+-export([bench/2, bench_many/3, start_bench/2]).
+
+-define(N_BENCH, 100).
+-define(N_REQUESTS, 100).
+-define(DUMP_PATH, "../HW1/dumps").
+
+% TODO why the first one takes more?
+
+start_bench(Host, Port) ->
+    Result = bench_many(Host, Port, ?N_BENCH),
+    Max = lists:max(Result),
+    Min = lists:min(Result),
+    Avg = lists:sum(Result) / length(Result),
+    io:format("Minimum RTT ~.3f ms~n", [Min / 1000.0]),
+    io:format("Maximum RTT ~.3f ms~n", [Max / 1000.0]),
+    io:format("Average RTT ~.3f ms~n", [Avg / 1000.0]),
+
+    TotalRequests = ?N_BENCH * ?N_REQUESTS,
+    TotalTimeMs = lists:sum(Result),
+    RequestsPerSecond = (TotalRequests * 1000000) / TotalTimeMs,
+    io:format("Average requests per second ~B~n", [trunc(RequestsPerSecond)]),
+
+    DumpFile = filename:join(?DUMP_PATH, "bench_results.csv"),
+    dump_to_csv(DumpFile, Result).
+
+dump_to_csv(File, Results) ->
+    {ok, Io} = file:open(File, [write]),
+    io:format(Io, "Run,RTT_microseconds~n", []),
+    lists:foreach(
+        fun({Idx, Val}) ->
+            io:format(Io, "~B,~B~n", [Idx, Val])
+        end,
+        lists:zip(lists:seq(1, length(Results)), Results)
+    ),
+    file:close(Io).
+
+bench_many(_Host, _Port, 0) ->
+    [];
+bench_many(Host, Port, N) ->
+    Result = bench(Host, Port),
+    [Result | bench_many(Host, Port, N - 1)].
 
 bench(Host, Port) ->
     Start = erlang:system_time(micro_seconds),
-    run(100, Host, Port),
+    run(?N_REQUESTS, Host, Port),
     Finish = erlang:system_time(micro_seconds),
-    io:format("Time Elapsed ~.3f ms~n", [(Finish - Start) / 1000.0]).
+    Result = Finish - Start,
+    io:format("Time Elapsed ~.3f ms~n", [Result / 1000.0]),
+    Result.
 
 run(N, Host, Port) ->
     if
