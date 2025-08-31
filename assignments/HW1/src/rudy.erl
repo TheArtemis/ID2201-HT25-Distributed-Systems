@@ -29,14 +29,14 @@ request(Client) ->
     case Recv of
         {ok, Str} ->
             {Request, Headers, Body} = http:parse_request(Str),
-            io:format("=== INCOMING HTTP REQUEST ===~n"),
+            % io:format("=== INCOMING HTTP REQUEST ===~n"),
 
-            io:format("Received Request: ~p~n", [Request]),
-            io:format("Received Headers: ~p~n", [Headers]),
-            io:format("Received Body: ~p~n", [Body]),
+            %io:format("Received Request: ~p~n", [Request]),
+            %io:format("Received Headers: ~p~n", [Headers]),
+            %io:format("Received Body: ~p~n", [Body]),
 
-            io:format("=== END OF HTTP REQUEST ===~n"),
-            Response = reply_handle({Request, Headers, Body}),
+            %io:format("=== END OF HTTP REQUEST ===~n"),
+            Response = reply({Request, Headers, Body}),
             gen_tcp:send(Client, Response);
         {error, Error} ->
             io:format("rudy: error: ~w~n", [Error])

@@ -5,7 +5,6 @@ bench(Host, Port) ->
     Start = erlang:system_time(micro_seconds),
     run(100, Host, Port),
     Finish = erlang:system_time(micro_seconds),
-    Finish - Start,
     io:format("Time Elapsed ~.3f ms~n", [(Finish - Start) / 1000.0]).
 
 run(N, Host, Port) ->

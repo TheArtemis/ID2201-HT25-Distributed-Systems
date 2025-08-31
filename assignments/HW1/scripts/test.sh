@@ -18,12 +18,12 @@ pkill -f "erl.*sname.*server" 2>/dev/null
 sleep 1
 
 # Get current working directory
-CURRENT_DIR=$(pwd)
+CURRENT_DIR=$(dirname "$(pwd)")
 echo -e "${BLUE}📂 Working directory: ${CYAN}$CURRENT_DIR${NC}"
 
 # Compile project
 echo -e "${YELLOW}⚙️  Compiling project...${NC}"
-make
+cd "$CURRENT_DIR" && make
 
 if [ $? -ne 0 ]; then
     echo -e "${RED}❌ Compilation failed! Exiting...${NC}"
@@ -51,3 +51,7 @@ echo -e "${CYAN}${BOLD}Manual commands (if needed):${NC}"
 echo -e "${WHITE}Server: ${YELLOW}$SERVER_CMD${NC}"
 
 echo -e "${WHITE}Client: ${YELLOW}$CLIENT_CMD${NC}"
+
+# Copy test command to clipboard
+echo "test:bench(localhost, 8080)." | xclip -selection clipboard
+echo -e "${GREEN}📋 Copied 'test:bench(localhost, 8080).' to clipboard!${NC}"
