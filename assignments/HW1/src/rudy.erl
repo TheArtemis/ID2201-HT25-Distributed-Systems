@@ -18,6 +18,7 @@ init(Port) ->
 handler(Listen) ->
     case gen_tcp:accept(Listen) of
         {ok, Client} ->
+            io:format("Accepting connection from ~p~n", [Listen]),
             request(Client),
             handler(Listen);
         {error, _} ->
@@ -29,14 +30,15 @@ request(Client) ->
     case Recv of
         {ok, Str} ->
             {Request, Headers, Body} = http:parse_request(Str),
-            % io:format("=== INCOMING HTTP REQUEST ===~n"),
-
+            %io:format("=== INCOMING HTTP REQUEST ===~n"),
+            %io:format("Received Message from ~p~n", [Client]),
+            io:format("Raw request string: ~p~n", [Str]),
             %io:format("Received Request: ~p~n", [Request]),
             %io:format("Received Headers: ~p~n", [Headers]),
             %io:format("Received Body: ~p~n", [Body]),
 
             %io:format("=== END OF HTTP REQUEST ===~n"),
-            Response = reply({Request, Headers, Body}),
+            Response = reply_handle({Request, Headers, Body}),
             gen_tcp:send(Client, Response);
         {error, Error} ->
             io:format("rudy: error: ~w~n", [Error])
