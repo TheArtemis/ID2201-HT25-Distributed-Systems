@@ -1,0 +1,64 @@
+% Very simple template for lab reports. Most common packages are already included.
+\documentclass[a4paper, 11pt]{article}
+\usepackage[utf8]{inputenc} % Change according your file encoding
+\usepackage{graphicx}
+\usepackage{url}
+
+%opening
+\title{Report 1: Rudy the HTTP Server}
+\author{Lorenzo Deflorian}
+\date{\today{}}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+\textit{Summary of the work you've done, what are the topics we cover
+  in this seminar, etc. Remember that you should deliver this report
+  at the start of the seminar.}
+
+What is the main topic related to distributed systems covered in this seminar?
+Why is it important?
+
+\section{Main problems and solutions}
+
+\textit{Summarize your problems, proposed solutions, etc. You do not
+  need to copy\&paste your code. Only if needed, you may write down
+  small code snipeds to show how you have solved a specific
+  problem/question.}
+
+Did you find any specific problem with the development of your
+solution?  How did you solve it?
+
+If you want to give a code example you can do it uing the verbatim environment.
+\begin{verbatim}
+this(X) ->
+    Y = is(X),
+    a(test(Y)).
+\end{verbatim}
+
+\section{Evaluation}
+
+\begin{figure}
+  \begin{center}
+    \includegraphics{latency_plot.png}
+    \caption{Latency Comparison}
+    \label{fig:latency_comparison}
+  \end{center}
+\end{figure}
+
+
+\section{Conclusions}
+
+\textit{Change the layout of this template as you want. It's only for
+  your guidance but if you feel that you need a different structure,
+  feel free to change it. The report should not be too long ($\approx$
+  2-3 pages).}
+
+What have you learnt from the problem presented?
+Was it useful?
+
+
+\end{document}
