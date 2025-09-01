@@ -1,5 +1,6 @@
 -module(test).
 -export([bench/2, bench_many/3, start_bench/2]).
+-import(misc, [dump_to_csv/2]).
 
 -define(N_BENCH, 100).
 -define(N_REQUESTS, 100).
@@ -23,17 +24,6 @@ start_bench(Host, Port) ->
 
     DumpFile = filename:join(?DUMP_PATH, "bench_results.csv"),
     dump_to_csv(DumpFile, Result).
-
-dump_to_csv(File, Results) ->
-    {ok, Io} = file:open(File, [write]),
-    io:format(Io, "Run,RTT_microseconds~n", []),
-    lists:foreach(
-        fun({Idx, Val}) ->
-            io:format(Io, "~B,~B~n", [Idx, Val])
-        end,
-        lists:zip(lists:seq(1, length(Results)), Results)
-    ),
-    file:close(Io).
 
 bench_many(_Host, _Port, 0) ->
     [];
