@@ -6,13 +6,7 @@ First try, 100 sequential requests:
 Time Elapsed 174.338 ms
 ok
 ```
-We can serve up to 573 requests/s.
-
-Averaging 11 runs of 100 sequential requests each:
-
-Time Elapsed (avg): 158.472 ms
-
-We can serve up to 631 requests/s on average.
+We can serve up to **573 requests/s.**
 
 Adding a 40ms processing delay we get:
 ```erlang
