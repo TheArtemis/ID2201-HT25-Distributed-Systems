@@ -5,7 +5,7 @@
 -define(N_BENCH, 100).
 -define(N_REQUESTS, 100).
 -define(DUMP_PATH, "../HW1/dumps").
-
+%deprecated
 start_bench(Host, Port) ->
     Result = bench_many(Host, Port, ?N_BENCH),
     Max = lists:max(Result),
@@ -66,16 +66,22 @@ run(N, Host, Port) ->
 
 request(Host, Port) ->
     Opt = [list, {active, false}, {reuseaddr, true}],
-    {ok, Server} = gen_tcp:connect(Host, Port, Opt),
-    gen_tcp:send(Server, http:get("foo")),
-    %io:format("Sent message. ~n"),
-
-    Recv = gen_tcp:recv(Server, 0),
-    %io:format("Server responded. ~n"),
-    case Recv of
-        {ok, _} ->
-            ok;
+    case gen_tcp:connect(Host, Port, Opt) of
+        {ok, Server} ->
+            case gen_tcp:send(Server, http:get("foo")) of
+                ok -> ok;
+                {error, SendErr} -> io:format("test: send error: ~p~n", [SendErr])
+            end,
+            case gen_tcp:recv(Server, 0) of
+                {ok, _} ->
+                    gen_tcp:close(Server),
+                    ok;
+                {error, Error} ->
+                    io:format("test: recv error: ~p~n", [Error]),
+                    gen_tcp:close(Server),
+                    {error, Error}
+            end;
         {error, Error} ->
-            io:format("test: error: ~w~n", [Error])
-    end,
-    gen_tcp:close(Server).
+            io:format("test: connect error: ~p~n", [Error]),
+            {error, Error}
+    end.

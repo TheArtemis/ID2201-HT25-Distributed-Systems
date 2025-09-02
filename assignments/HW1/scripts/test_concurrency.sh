@@ -33,7 +33,7 @@ fi
 echo -e "${GREEN}✅ Compilation successful!${NC}"
 
 # Create startup commands for server and clients
-SERVER_CMD="cd '$CURRENT_DIR' && erl -pa '$CURRENT_DIR/bin' -setcookie 1234 -sname server -eval 'rudy:start(8080).' "
+SERVER_CMD="cd '$CURRENT_DIR' && erl -pa '$CURRENT_DIR/bin' -setcookie 1234 -sname server -eval 'multi_rudy:start(8080).' "
 CLIENT1_CMD="cd '$CURRENT_DIR' && erl -pa '$CURRENT_DIR/bin' -setcookie 1234 -sname client1"
 CLIENT2_CMD="cd '$CURRENT_DIR' && erl -pa '$CURRENT_DIR/bin' -setcookie 1234 -sname client2"
 CLIENT3_CMD="cd '$CURRENT_DIR' && erl -pa '$CURRENT_DIR/bin' -setcookie 1234 -sname client3"

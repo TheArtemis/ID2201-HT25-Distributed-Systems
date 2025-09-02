@@ -1,5 +1,5 @@
 -module(http).
--export([parse_request/1, ok/1, get/1]).
+-export([parse_request/1, ok/1, get/1, conflict/0]).
 
 parse_request(R0) ->
     {Request, R1} = request_line(R0),
@@ -44,3 +44,6 @@ ok(Body) ->
     "HTTP/1.1 200 OK\r\n" ++ "\r\n" ++ Body.
 get(URI) ->
     "GET " ++ URI ++ " HTTP/1.1\r\n" ++ "\r\n".
+
+conflict() ->
+    "HTTP/1.1 409 Conflict\r\n" ++ "\r\n".

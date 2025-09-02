@@ -5,7 +5,7 @@ import glob
 import numpy as np
 
 csv_files = glob.glob('../dumps/concurrent_bench_*.csv')
-output_path = '../report/latency_plot.png'
+output_path = '../report/concurrent_benches/latency_plot.png'
 
 plt.figure(figsize=(14, 8))
 
