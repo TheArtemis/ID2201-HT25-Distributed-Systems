@@ -1,3 +1,6 @@
 # Ignore Erlang compiled files
 *.beam
 *.dump
+
+assignments/HW1/dumps/bench/
+
