@@ -1,33 +1,33 @@
 -module(test).
--export([bench/2, bench_many/3, start_bench/2, bench_live/2]).
+-export([bench/2, bench_many/3, bench_live/2]).
 -import(misc, [dump_to_csv/2]).
 
 -define(N_BENCH, 100).
 -define(N_REQUESTS, 100).
--define(DUMP_PATH, "../HW1/dumps").
-%deprecated
-start_bench(Host, Port) ->
-    Result = bench_many(Host, Port, ?N_BENCH),
-    Max = lists:max(Result),
-    Min = lists:min(Result),
-    Avg = lists:sum(Result) / length(Result),
-    io:format("Minimum RTT ~.3f ms~n", [Min / 1000.0]),
-    io:format("Maximum RTT ~.3f ms~n", [Max / 1000.0]),
-    io:format("Average RTT ~.3f ms~n", [Avg / 1000.0]),
+-define(DUMP_PATH, "../HW1/dumps/bench/spawn").
 
-    TotalRequests = ?N_BENCH * ?N_REQUESTS,
-    TotalTimeMs = lists:sum(Result),
-    RequestsPerSecond = (TotalRequests * 1000000) / TotalTimeMs,
-    io:format("Average requests per second ~B~n", [trunc(RequestsPerSecond)]),
+bench_many(Nodes, Host, Port) ->
+    Pids = initialize_many(Nodes, Host, Port),
+    start_many(Pids).
 
-    DumpFile = filename:join(?DUMP_PATH, "bench_results.csv"),
-    dump_to_csv(DumpFile, Result).
+initialize_many(Nodes, Host, Port) ->
+    [spawn(fun() -> wait_for_signal(Host, Port) end) || _ <- lists:seq(1, Nodes)].
 
-bench_many(_Host, _Port, 0) ->
-    [];
-bench_many(Host, Port, N) ->
-    Result = bench(Host, Port),
-    [Result | bench_many(Host, Port, N - 1)].
+start_many(Pids) ->
+    lists:foreach(fun(P) -> P ! start end, Pids),
+    io:format("Started all processes ~n").
+
+wait_for_signal(Host, Port) ->
+    receive
+        start ->
+            Start = Start = erlang:system_time(micro_seconds),
+            Result = run_live(?N_REQUESTS, Host, Port),
+            %Finish = erlang:system_time(micro_seconds),
+            %io:format("Total Time Elapsed ~.3f ms~n", [(Finish - Start) / 1000.0]),
+            FileName = integer_to_list(Start),
+            DumpFile = filename:join(?DUMP_PATH, "ts_" ++ FileName ++ ".csv"),
+            dump_to_csv(DumpFile, Result)
+    end.
 
 bench(Host, Port) ->
     Start = erlang:system_time(micro_seconds),
