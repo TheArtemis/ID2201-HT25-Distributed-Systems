@@ -21,8 +21,28 @@ If we launch multiple clients at the same time and we run the bench function, sa
 
 ![Latency increases with more clients](./sequential_benches/latency_plot.png)
 
+# Handling Concurrency
+
+
+## Does it take a lot to create a process?
+We can test how much time it takes to create a new process. The results are the following:
+
+```bash
+Average process creation time: 0.015 ms
+Maximum process creation time: 0.171 ms
+Minimum process creation time: 0.006 ms
+```
+
+Processes are very light to create, with very minimal overhead!
+
+## Going Concurrent
+
 We need to make ours server concurrent so it can handle multiple clients at the same time and increase the throughput.
 
 Here it goes, Multi Rudy, using a connection pool he's capable of handling connections concurrently. Compared to the previous graph, here we can see how the latency doesn't increase when adding more clients.
 
 ![Latency remains the same](./concurrent_benches/latency_plot.png)
+
+# Questions to answer
+- What happens when the servers are all full and an extra client connects?
+- have we increased the throughput?
