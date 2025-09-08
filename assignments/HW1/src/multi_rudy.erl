@@ -3,15 +3,15 @@
 -export([start/1, stop/0]).
 
 -define(HANDLING_TIME, 40).
--define(CONCURRENCY, 3).
+-define(CONCURRENCY, 100).
 
 init(Port, Concurrency) ->
     Opt = [list, {active, false}, {reuseaddr, true}],
     case gen_tcp:listen(Port, Opt) of
         {ok, Client} ->
             io:format("Listening on port ~p with a pool of ~p workers ~n", [Port, Concurrency]),
-            Workers = spawn_handlers(Concurrency, Client),
-            wait(Client, Workers);
+            Handlers = spawn_handlers(Concurrency, Client),
+            wait(Client, Handlers);
         {error, _} ->
             error
     end.
@@ -33,10 +33,9 @@ spawn_handlers(N, Client) ->
     [Process | spawn_handlers(N - 1, Client)].
 
 handler(Listen) ->
-    io:format("Spawned worker: ~w~n", [self()]),
     case gen_tcp:accept(Listen) of
         {ok, Client} ->
-            io:format("Accepting connection from ~p~n", [Listen]),
+            %io:format("Accepting connection from ~p~n", [Listen]),
             request(Client),
             handler(Listen);
         {error, _} ->
@@ -45,13 +44,13 @@ handler(Listen) ->
 
 request(Client) ->
     Recv = gen_tcp:recv(Client, 0),
-    io:format("Request being handled ~w~n", [self()]),
+    %io:format("Request being handled ~w~n", [self()]),
     case Recv of
         {ok, Str} ->
             {Request, Headers, Body} = http:parse_request(Str),
             %io:format("=== INCOMING HTTP REQUEST ===~n"),
             %io:format("Received Message from ~p~n", [Client]),
-            io:format("Raw request string: ~p~n", [Str]),
+            %io:format("Raw request string: ~p~n", [Str]),
             %io:format("Received Request: ~p~n", [Request]),
             %io:format("Received Headers: ~p~n", [Headers]),
             %io:format("Received Body: ~p~n", [Body]),
