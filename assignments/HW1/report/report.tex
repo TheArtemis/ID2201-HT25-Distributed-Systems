@@ -130,4 +130,6 @@ The \texttt{multi\_rudy} implementation performs significantly better than the s
 
 This report explored the performance of a simple sequential server implementation in Erlang and compared it with a concurrent version using a pool of handlers. We found that the sequential implementation suffers increased latency as the number of connected clients grows, while the concurrent implementation handles multiple requests in parallel with much lower latency.
 
+For further improvements, we could upgrade the pool management strategy to dynamically adjust the number of handlers based on current load. One manager process could monitor the busy handlers and spawn new ones as needed, or terminate idle ones to free resources.
+
 \end{document}
