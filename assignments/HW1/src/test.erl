@@ -4,7 +4,7 @@
 
 -define(N_BENCH, 100).
 -define(N_REQUESTS, 100).
--define(DUMP_PATH, "../HW1/dumps/bench/spawn").
+-define(DUMP_PATH, "../HW1/dumps/bench/many").
 
 bench_many(Nodes, Host, Port) ->
     Pids = initialize_many(Nodes, Host, Port),
@@ -25,7 +25,7 @@ wait_for_signal(Host, Port) ->
             %Finish = erlang:system_time(micro_seconds),
             %io:format("Total Time Elapsed ~.3f ms~n", [(Finish - Start) / 1000.0]),
             FileName = integer_to_list(Start),
-            DumpFile = filename:join(?DUMP_PATH, "ts_" ++ FileName ++ ".csv"),
+            DumpFile = filename:join(?DUMP_PATH, "tm_" ++ FileName ++ ".csv"),
             dump_to_csv(DumpFile, Result)
     end.
 

@@ -9,7 +9,7 @@ init(Port, Concurrency) ->
     Opt = [list, {active, false}, {reuseaddr, true}],
     case gen_tcp:listen(Port, Opt) of
         {ok, Client} ->
-            io:format("Listening on port ~p with a pool of ~p workers ~n", [Port, Concurrency]),
+            io:format("Listening on port ~p with a pool of ~p handlers ~n", [Port, Concurrency]),
             Handlers = spawn_handlers(Concurrency, Client),
             wait(Client, Handlers);
         {error, _} ->

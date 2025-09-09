@@ -17,10 +17,10 @@ init(Port) ->
 handler(Listen) ->
     case gen_tcp:accept(Listen) of
         {ok, Client} ->
-            StartTime = erlang:monotonic_time(microsecond),
+            %StartTime = erlang:monotonic_time(microsecond),
             spawn(fun() -> request(Client) end),
-            EndTime = erlang:monotonic_time(microsecond),
-            io:format("~p~n", [(EndTime - StartTime)]),
+            %EndTime = erlang:monotonic_time(microsecond),
+            %io:format("~p~n", [(EndTime - StartTime)]),
             handler(Listen);
         {error, _} ->
             io:format("Error accepting connection~n"),
