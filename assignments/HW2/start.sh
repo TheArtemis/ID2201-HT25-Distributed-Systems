@@ -34,8 +34,8 @@ echo -e "${GREEN}✅ Compilation successful!${NC}"
 
 # Create startup commands for server and client
 BEAM_DIR="$CURRENT_DIR/bin"
-SERVER_CMD="cd '$CURRENT_DIR' && erl -pa '$BEAM_DIR' -setcookie 1234 -sname italy -connect_all_false -eval 'routy:start(italy, rome)'"
-CLIENT_CMD="cd '$CURRENT_DIR' && erl -pa '$BEAM_DIR' -setcookie 1234 -sname spain -connect_all_false -eval 'routy:start(spain, madrid)'"
+SERVER_CMD="cd '$CURRENT_DIR' && erl -pa '$BEAM_DIR' -setcookie 1234 -sname italy -connect_all_false -eval 'routy:start(rome, rome)'"
+CLIENT_CMD="cd '$CURRENT_DIR' && erl -pa '$BEAM_DIR' -setcookie 1234 -sname spain -connect_all_false -eval 'routy:start(madrid, madrid)'"
 
 echo ""
 echo -e "${PURPLE}${BOLD}=== 🚀 Starting Erlang nodes automatically ===${NC}"
