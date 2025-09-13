@@ -1,0 +1,2 @@
+msg:status({italy, 'italy@DORORO'}, 1000).
+msg:status({spain, 'spain@DORORO'}, 1000).

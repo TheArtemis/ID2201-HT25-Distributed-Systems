@@ -4,7 +4,7 @@
 
 -define(N_BENCH, 100).
 -define(N_REQUESTS, 100).
--define(DUMP_PATH, "../HW1/dumps/bench/many").
+-define(DUMP_PATH, "../HW1/dumps/bench/presentation").
 
 bench_many(Nodes, Host, Port) ->
     Pids = initialize_many(Nodes, Host, Port),
