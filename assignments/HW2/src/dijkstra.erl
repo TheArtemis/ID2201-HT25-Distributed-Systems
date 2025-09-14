@@ -32,11 +32,11 @@ update(Node, N, Gateway, Sorted) ->
 % Map: [{paris, [berlin]}] -> Nodes that are directly Reachable
 % Table: []
 
-iterate([], _Map, Table) ->
+iterate([], _Map, _Gateways, Table) ->
     lists:reverse(Table);
-iterate([{_, inf, _} | _], _Map, Table) ->
+iterate([{_, inf, _} | _], _Map, _Gateways, Table) ->
     lists:reverse(Table);
-iterate([H | T], Map, Table) ->
+iterate([H | T], Map, Gateways, Table) ->
     % Take first element
     {Node, N, Gateway} = H,
 
@@ -47,7 +47,16 @@ iterate([H | T], Map, Table) ->
     % For each node update the sorted list
     Sorted = lists:foldl(
         fun(ReachNode, AccSorted) ->
-            update(ReachNode, N + 1, Node, AccSorted)
+            % If this is a direct gateway, use Node as gateway
+            % Otherwise, preserve the original gateway from the current node
+            NewGateway =
+                case lists:member(Node, Gateways) of
+                    % Direct gateway
+                    true -> Node;
+                    % Preserve original gateway
+                    false -> Gateway
+                end,
+            update(ReachNode, N + 1, NewGateway, AccSorted)
         end,
         T,
         Reachable
@@ -56,13 +65,14 @@ iterate([H | T], Map, Table) ->
     %io:format("Current Sorted: ~p~nMap: ~p~nTable: ~p~n", [Sorted, Map, Table]),
 
     % The entry is then added to the Table
-    iterate(Sorted, Map, [{Node, Gateway} | Table]).
+    iterate(Sorted, Map, Gateways, [{Node, Gateway} | Table]).
 
 % Gateways: [paris, madrid],
 % Map: [{madrid,[berlin]}, {paris, [rome,madrid]}]
 
 table(Gateways, Map) ->
-    AllNodes = map:all_nodes(Map),
+    % REMEMBER this was a issue: AllNodes = map:all_nodes(Map),
+    AllNodes = lists:usort(Gateways ++ map:all_nodes(Map)),
 
     Initial = [
         {Node,
@@ -78,7 +88,7 @@ table(Gateways, Map) ->
     ],
 
     Sorted = lists:keysort(2, Initial),
-    iterate(Sorted, Map, []).
+    iterate(Sorted, Map, Gateways, []).
 
 route(Node, Table) ->
     case lists:keyfind(Node, 1, Table) of

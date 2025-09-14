@@ -6,10 +6,13 @@
 
 new() ->
     [].
+
 add(Name, Ref, Pid, Intf) ->
-    [{Name, Ref, Pid} | Intf].
+    [{Name, Ref, Pid} | lists:keydelete(Name, 1, Intf)].
+
 remove(Name, Intf) ->
     lists:keydelete(Name, 1, Intf).
+
 lookup(Name, Intf) ->
     case lists:keyfind(Name, 1, Intf) of
         {Name, _Ref, Pid} ->
@@ -38,5 +41,15 @@ list(Intf) ->
     [Name || {Name, _Ref, _Pid} <- Intf].
 
 broadcast(Message, Intf) ->
-    [Pid ! Message || {_Name, _Ref, Pid} <- Intf],
+    lists:foreach(
+        fun
+            ({_Name, _Ref, Pid}) when is_pid(Pid) ->
+                Pid ! Message;
+            ({_Name, _Ref, {RegName, Node}}) ->
+                {RegName, Node} ! Message;
+            (_) ->
+                ok
+        end,
+        Intf
+    ),
     ok.

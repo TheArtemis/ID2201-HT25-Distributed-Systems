@@ -1,2 +1,17 @@
-msg:status({italy, 'italy@DORORO'}, 1000).
-msg:status({spain, 'spain@DORORO'}, 1000).
+msg:status({r1, 'italy@DORORO'}, 1000).
+msg:status({r1, 'spain@DORORO'}, 1000).
+
+
+r1 ! {add, madrid, {r1, 'spain@DORORO'}}.
+r1 ! broadcast.
+r1 ! update.
+
+r1 ! {send, turin, "Hello there"}.
+r2 ! {send, madrid, "Hello there"}.
+
+r1 ! {remove, turin}.
+r1 ! broadcast.
+r1 ! update.
+
+msg:status({r3, 'italy@DORORO'}, 1000).
+

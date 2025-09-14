@@ -11,15 +11,48 @@ WHITE='\033[1;37m'
 BOLD='\033[1m'
 NC='\033[0m' # No Color
 
-# Kill any existing Erlang nodes
-echo -e "${RED}🔪 Killing existing Erlang nodes...${NC}"
-pkill -f "erl.*sname.*client" 2>/dev/null
-pkill -f "erl.*sname.*server" 2>/dev/null
-sleep 1
-
-# Get current working directory
+# Get current working directory early for safer matching
 CURRENT_DIR="$(pwd)"
 echo -e "${BLUE}📂 Working directory: ${CYAN}$CURRENT_DIR${NC}"
+
+# Kill any existing Erlang nodes (robust: matches erl/beam.smp and -sname/-name args)
+echo -e "${RED}🔪 Killing existing Erlang nodes...${NC}"
+kill_node() {
+    local name="$1"
+    # Look for Erlang VM processes (erl or beam.smp) whose args contain -sname or -name with the node name
+    local pids
+    pids=$(pgrep -af 'erl|beam.smp' 2>/dev/null | grep -E -- "-sname[[:space:]]+$name\\b|-name[[:space:]]+$name\\b" | awk '{print $1}')
+    if [ -n "$pids" ]; then
+        echo -e "${YELLOW}Found processes for node '${name}': ${pids}${NC}"
+        kill $pids 2>/dev/null || kill -9 $pids 2>/dev/null
+        sleep 1
+    else
+        # Fallback: fuzzy match the name in process arguments (case-insensitive)
+        pids=$(pgrep -af 'erl|beam.smp' 2>/dev/null | grep -i -- "$name" | awk '{print $1}')
+        if [ -n "$pids" ]; then
+            echo -e "${YELLOW}Fallback: found processes for '${name}': ${pids}${NC}"
+            kill $pids 2>/dev/null || kill -9 $pids 2>/dev/null
+            sleep 1
+        else
+            echo -e "${GREEN}No running Erlang process found for node '${name}'.${NC}"
+        fi
+    fi
+}
+
+# Try to kill common node names used by this project
+kill_node "italy"
+kill_node "spain"
+
+# Also attempt to kill any leftover erl/beam.smp processes that were started from this working dir
+pgrep -af 'erl|beam.smp' 2>/dev/null | grep -- "$CURRENT_DIR" >/dev/null 2>&1
+if [ $? -eq 0 ]; then
+    echo -e "${YELLOW}Killing Erlang processes started from ${CURRENT_DIR}${NC}"
+    pgrep -af 'erl|beam.smp' 2>/dev/null | grep -- "$CURRENT_DIR" | awk '{print $1}' | xargs -r kill 2>/dev/null || true
+    sleep 1
+fi
+
+
+# Parse arguments - remove AUTO_MODE functionality
 
 # Compile project
 echo -e "${YELLOW}⚙️  Compiling project...${NC}"
@@ -32,24 +65,27 @@ fi
 
 echo -e "${GREEN}✅ Compilation successful!${NC}"
 
-# Create startup commands for server and client
 BEAM_DIR="$CURRENT_DIR/bin"
-SERVER_CMD="cd '$CURRENT_DIR' && erl -pa '$BEAM_DIR' -setcookie 1234 -sname italy -connect_all_false -eval 'routy:start(rome, rome)'"
-CLIENT_CMD="cd '$CURRENT_DIR' && erl -pa '$BEAM_DIR' -setcookie 1234 -sname spain -connect_all_false -eval 'routy:start(madrid, madrid)'"
+EVAL_ITALY="test:setup_italy()."
+EVAL_SPAIN="test:setup_spain()."
+
+ITALY_CMD="cd '$CURRENT_DIR' && erl -pa '$BEAM_DIR' -setcookie 1234 -sname italy -connect_all_false -eval '$EVAL_ITALY'"
+SPAIN_CMD="cd '$CURRENT_DIR' && erl -pa '$BEAM_DIR' -setcookie 1234 -sname spain -connect_all_false -eval '$EVAL_SPAIN'"
 
 echo ""
 echo -e "${PURPLE}${BOLD}=== 🚀 Starting Erlang nodes automatically ===${NC}"
-echo -e "${WHITE}Server will start in ${GREEN}left pane${WHITE}, Client in ${BLUE}right pane${NC}"
+echo -e "${WHITE}🇮🇹 ITALY will start in ${GREEN}left pane${WHITE}, 🇪🇸 SPAIN in ${BLUE}right pane${NC}"
 echo -e "${PURPLE}${BOLD}===========================================${NC}"
 echo ""
 
-# Launch Windows Terminal with split panes and auto-start nodes
-wt.exe new-tab --title "Erlang Development" bash -c "$SERVER_CMD" \; split-pane --title "Client" bash -c "$CLIENT_CMD"
+# Windows Terminal profile to use (set to `happylemon` to use your profile)
+WT_PROFILE="happylemon"
+
+# Launch Windows Terminal with split panes and auto-start nodes (uses specified profile)
+wt.exe new-tab --profile "$WT_PROFILE" --title "Erlang Development" bash -c "$ITALY_CMD" \; split-pane --profile "$WT_PROFILE" --title "SPAIN" bash -c "$SPAIN_CMD"
 
 echo -e "${GREEN}🎉 Terminal launched with auto-started nodes!${NC}"
 echo ""
 echo -e "${CYAN}${BOLD}Manual commands (if needed):${NC}"
-echo -e "${WHITE}Server: ${YELLOW}$SERVER_CMD${NC}"
-
-echo -e "${WHITE}Client: ${YELLOW}$CLIENT_CMD${NC}"
-
+echo -e "${WHITE}🇮🇹 ITALY: ${YELLOW}$ITALY_CMD${NC}"
+echo -e "${WHITE}🇪🇸 SPAIN: ${YELLOW}$SPAIN_CMD${NC}"

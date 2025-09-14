@@ -11,7 +11,7 @@ update(Node, N, History) ->
         {Node, Highest} when N =< Highest ->
             old;
         {Node, Highest} when N > Highest ->
-            History1 = lists:keyreplace(Node, 1, {Node, N}),
+            History1 = lists:keyreplace(Node, 1, History, {Node, N}),
             {new, History1};
         false ->
             {new, [{Node, N} | History]}
