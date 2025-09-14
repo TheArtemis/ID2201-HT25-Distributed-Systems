@@ -37,23 +37,16 @@ iterate([], _Map, _Gateways, Table) ->
 iterate([{_, inf, _} | _], _Map, _Gateways, Table) ->
     lists:reverse(Table);
 iterate([H | T], Map, Gateways, Table) ->
-    % Take first element
     {Node, N, Gateway} = H,
 
     % Find all the nodes in the sorted map that are reachable from the entry
-
     Reachable = map:reachable(Node, Map),
 
-    % For each node update the sorted list
     Sorted = lists:foldl(
         fun(ReachNode, AccSorted) ->
-            % If this is a direct gateway, use Node as gateway
-            % Otherwise, preserve the original gateway from the current node
             NewGateway =
                 case lists:member(Node, Gateways) of
-                    % Direct gateway
                     true -> Node;
-                    % Preserve original gateway
                     false -> Gateway
                 end,
             update(ReachNode, N + 1, NewGateway, AccSorted)
