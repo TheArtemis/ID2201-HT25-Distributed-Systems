@@ -7,7 +7,7 @@ r1 ! broadcast.
 r1 ! update.
 
 r1 ! {send, turin, "Hello there"}.
-r2 ! {send, madrid, "Hello there"}.
+r1 ! {send, madrid, "Hello there"}.
 
 r1 ! {remove, turin}.
 r1 ! broadcast.

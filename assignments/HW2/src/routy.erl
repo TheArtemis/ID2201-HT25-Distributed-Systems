@@ -13,7 +13,7 @@ stop(Node) ->
 init(Name) ->
     Intf = intf:new(),
     Map = map:new(),
-    Table = dijkstra:table(Intf, Map),
+    Table = dijkstra:table([Name | intf:list(Intf)], Map),
     Hist = hist:new(Name),
     io:format("Router ~w started~n", [Name]),
     router(Name, 0, Hist, Intf, Table, Map).
@@ -53,15 +53,16 @@ router(Name, N, Hist, Intf, Table, Map) ->
                 old ->
                     router(Name, N, Hist, Intf, Table, Map)
             end;
-        % Message is ours
-        {route, Name, _From, Message} ->
-            io:format("~w: received message ~p ~n", [Name, Message]),
-            router(Name, N, Hist, Intf, Table, Map);
-        % Message should be forwarded
+        % Message routing (unified for both self and forwarding)
         {route, To, From, Message} ->
             io:format("~w: routing message ~p ~n", [Name, Message]),
             case dijkstra:route(To, Table) of
+                {ok, Gw} when Gw =:= Name ->
+                    % Message is for this router
+                    io:format("~w: received message ~p ~n", [Name, Message]),
+                    router(Name, N, Hist, Intf, Table, Map);
                 {ok, Gw} ->
+                    % Message should be forwarded
                     io:format("~w: gateway resolved to ~p~n", [Name, Gw]),
                     case intf:lookup(Gw, Intf) of
                         {ok, Pid} ->
@@ -69,18 +70,18 @@ router(Name, N, Hist, Intf, Table, Map) ->
                         notfound ->
                             io:format("~w: gateway ~p not found in interfaces~n", [Name, Gw]),
                             ok
-                    end;
+                    end,
+                    router(Name, N, Hist, Intf, Table, Map);
                 notfound ->
                     io:format("~w: no route to ~p~n", [Name, To]),
-                    ok
-            end,
-            router(Name, N, Hist, Intf, Table, Map);
+                    router(Name, N, Hist, Intf, Table, Map)
+            end;
         % Send a message
         {send, To, Message} ->
             self() ! {route, To, Name, Message},
             router(Name, N, Hist, Intf, Table, Map);
         update ->
-            Table1 = dijkstra:table(intf:list(Intf), Map),
+            Table1 = dijkstra:table([Name | intf:list(Intf)], Map),
             router(Name, N, Hist, Intf, Table1, Map);
         broadcast ->
             Message = {links, Name, N, intf:list(Intf)},

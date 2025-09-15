@@ -103,15 +103,15 @@ update_all() ->
 status_all() ->
     lists:foreach(
         fun(R) ->
-            Status = msg:status({R, ?ITALY}, 1000),
-            io:format("Status from ~p on Italy: ~p~n", [R, Status])
+            _ = msg:status({R, ?ITALY}, 1000)
+        %io:format("Status from ~p on Italy: ~p~n", [R, Status])
         end,
         [r1, r2, r3]
     ),
     lists:foreach(
         fun(R) ->
-            Status = msg:status({R, ?SPAIN}, 1000),
-            io:format("Status from ~p on Spain: ~p~n", [R, Status])
+            _ = msg:status({R, ?SPAIN}, 1000)
+        %io:format("Status from ~p on Spain: ~p~n", [R, Status])
         end,
         [r4, r5]
     ).
