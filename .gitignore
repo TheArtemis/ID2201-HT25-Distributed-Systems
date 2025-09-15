@@ -2,11 +2,11 @@
 *.beam
 *.dump
 
-assignments/HW1/dumps/bench/
+assignments/*/dumps/bench/
 
-assignments/HW1/report/report.aux
-assignments/HW1/report/report.log
+**/report.aux
+**/report.log
 
-texput.log
+**/texput.log
 
 *.zip
