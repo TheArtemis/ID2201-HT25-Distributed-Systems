@@ -15,3 +15,11 @@ r1 ! update.
 
 msg:status({r3, 'italy@DORORO'}, 1000).
 
+--- For World test ---
+
+net_adm:ping('sweden@n128-p22.eduroam.kth.se').
+
+msg:status({r3, 'italy@130.229.168.103'}, 1000).
+
+r3 ! {send, madrid, "Hello there"}.
+

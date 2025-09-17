@@ -1,0 +1,28 @@
+# Erlang WSL Network Setup - Run as Administrator in PowerShell
+
+# Port Forwarding: Forward traffic from Windows IP to WSL
+# EPMD port (essential for Erlang node discovery)
+netsh interface portproxy add v4tov4 listenport=4369 listenaddress=0.0.0.0 connectport=4369 connectaddress=172.21.252.144 protocol=tcp
+
+# Erlang distribution ports (for actual inter-node communication)
+for ($i=9100; $i -le 9110; $i++) { 
+    netsh interface portproxy add v4tov4 listenport=$i listenaddress=0.0.0.0 connectport=$i connectaddress=172.21.252.144 protocol=tcp 
+}
+
+# Windows Firewall Rules: Allow incoming connections
+# Allow EPMD port through firewall
+New-NetFirewallRule -DisplayName "Erlang EPMD Port 4369" -Direction Inbound -Protocol TCP -LocalPort 4369 -Action Allow
+
+# Allow Erlang distribution ports through firewall  
+New-NetFirewallRule -DisplayName "Erlang Distribution Ports 9100-9110" -Direction Inbound -Protocol TCP -LocalPort 9100-9110 -Action Allow
+
+# Verification Commands
+Write-Host "=== Port Forwarding Rules ===" -ForegroundColor Green
+netsh interface portproxy show all
+
+Write-Host "`n=== Firewall Rules ===" -ForegroundColor Green
+Get-NetFirewallRule -DisplayName "*Erlang*"
+
+Write-Host "`n=== Setup Complete! ===" -ForegroundColor Green
+Write-Host "Now start your Erlang node with:" -ForegroundColor Yellow
+Write-Host "erl -name lorenzo@130.229.168.103 -setcookie 1234 -kernel inet_dist_listen_min 9100 inet_dist_listen_max 9110" -ForegroundColor Cyan

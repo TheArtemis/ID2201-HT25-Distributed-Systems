@@ -37,7 +37,8 @@ router(Name, N, Hist, Intf, Table, Map) ->
             router(Name, N, Hist, Intf1, Table, Map);
         {'DOWN', Ref, process, _, _} ->
             {ok, Down} = intf:name(Ref, Intf),
-            io:format("~w: exit recived from ~w~n", [Name, Down]),
+            Now = erlang:system_time(millisecond),
+            io:format("~w: exit received from ~w at timestamp ~w~n", [Name, Down, Now]),
             Intf1 = intf:remove(Down, Intf),
             router(Name, N, Hist, Intf1, Table, Map);
         {status, From} ->
