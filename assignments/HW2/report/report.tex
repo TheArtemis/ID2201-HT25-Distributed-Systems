@@ -125,4 +125,69 @@ Another possible improvement would be to implement an automatic mechanism for ro
 
 This could be achieved by implementing a heartbeat mechanism, in which routers periodically send "hello" messages to their neighbors to check if they are still reachable. If a router does not receive a "hello" message from a neighbor within a certain time frame, it can assume that the link to that neighbor has failed and update its routing table accordingly.
 
+\section{The world}
+
+Let's try to see if we can route a message from our machine to another node running on a different machine. To do this i have asked the help of a friend, Riccardo Fragale, who has set up his topology as follows:
+
+\begin{center}
+\includegraphics[width=0.4\textwidth]{screenshots/riccardos_topology.png}
+\end{center}
+
+From my topology I will remove the connection between \textbf{Turin} and \textbf{Madrid}. Then we will connect both \textbf{Turin} and \textbf{Madrid} to \textbf{Lulea} the new router that is running in Sweden (Riccardo's network).
+
+Let's set up the network and see if the routing still works. This is the result of calling msg:status({r3, 'italy@DORORO'}, 1000).
+
+\begin{center}
+\includegraphics[width=0.8\textwidth]{screenshots/initial_status.png}
+\end{center}
+
+Perfect, we can see that the routing tables are correclty set up. Now let's try to send a message from Turin to Madrid. This, time there is a new shortest path that goes through Lulea.
+
+\begin{center}
+\includegraphics[width=0.8\textwidth]{screenshots/initial_message_routing_to_lulea.png}
+\end{center}
+
+Turin sends a message to lulea, which then forwards it to Madrid. The message is correctly routed through the new path: \textbf{Turin} $\to$ \textbf{Lulea} $\to$ \textbf{Madrid}.
+
+\begin{center}
+\includegraphics[width=0.8\textwidth]{screenshots/Message_Routing_to_Madrid_From_Lullea.png}
+\end{center}
+
+\begin{center}
+\includegraphics[width=0.8\textwidth]{screenshots/madrid_receives_from_lulea.png}
+\end{center}
+
+Let's now see what happens if we kill the erlang process running on Riccardo's machine. This simulates a complete failure of the Sweden area.
+
+\begin{center}
+\includegraphics[width=0.8\textwidth]{screenshots/Initial_kill.png}
+\end{center}
+
+After sending a kill message to Sweden, on my machine I get:
+
+\begin{verbatim}
+turin: exit received from lulea at timestamp 1758108122792
+madrid: exit received from lulea at timestamp 1758108122791
+\end{verbatim}
+
+Looking at the timestamp from Riccardo's machine (1758108121) we can see that after 1 second both Turin and Madrid have detected the failure of Lulea.
+
+Now, let's try to send a message from Turin to Madrid again:
+\begin{center}
+\includegraphics[width=0.8\textwidth]{screenshots/routing_failed.png}
+\end{center}
+
+The message routing fails, as expected, because there is no available path between Turin and Madrid after the failure of Lulea.
+
+To wrap it up let's update the routing tables in both areas and send a message again from Turin.
+\begin{center}
+\includegraphics[width=0.8\textwidth]{screenshots/routing_resolved_to_barcelona.png}
+\end{center}
+
+\begin{center}
+\includegraphics[width=0.8\textwidth]{screenshots/madrid_receives_from_turin.png}
+\end{center}
+
+As we can see, the message is correctly routed through the new path: \textbf{Turin} $\to$\ \textbf{Rome} $\to$ \textbf{Milan} $\to$ \textbf{Barcelona} $\to$ \textbf{Madrid}.
+
 \end{document}

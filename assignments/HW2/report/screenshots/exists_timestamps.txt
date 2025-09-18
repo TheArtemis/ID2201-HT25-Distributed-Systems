@@ -1,0 +1,2 @@
+turin: exit received from lulea at timestamp 1758108122792
+madrid: exit received from lulea at timestamp 1758108122791
