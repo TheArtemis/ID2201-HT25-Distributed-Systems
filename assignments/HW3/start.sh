@@ -55,12 +55,13 @@ fi
 echo -e "${GREEN}✅ Compilation successful!${NC}"
 
 
-# Set default values for Sleep and Jitter if not provided
+# Set default values for Sleep, Jitter and Nodesif not provided
 SLEEP=${1:-1000}
 JITTER=${2:-100}
+NODES=${3:-5}
 
 BEAM_DIR="$CURRENT_DIR/bin"
-EVAL="test:run($SLEEP, $JITTER)."
+EVAL="test:run($SLEEP, $JITTER, $NODES)."
 CMD="cd '$CURRENT_DIR' && erl -pa '$BEAM_DIR' -setcookie 1234 -sname loggy -eval '$EVAL'"
 
 echo ""

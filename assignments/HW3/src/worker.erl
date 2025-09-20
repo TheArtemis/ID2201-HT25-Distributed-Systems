@@ -8,7 +8,7 @@ init(Name, Log, Seed, Sleep, Jitter) ->
     random:seed(Seed, Seed, Seed),
     receive
         {peers, Peers} ->
-            loop(Name, Log, Peers, Sleep, Jitter);
+            loop(Name, Log, Peers, Sleep, Jitter, logical_time:zero());
         stop ->
             ok
     end.
@@ -16,24 +16,25 @@ init(Name, Log, Seed, Sleep, Jitter) ->
 peers(Wrk, Peers) ->
     Wrk ! {peers, Peers}.
 
-loop(Name, Log, Peers, Sleep, Jitter) ->
+loop(Name, Log, Peers, Sleep, Jitter, Clock) ->
     Wait = rand:uniform(Sleep),
     receive
         {msg, Time, Msg} ->
-            Log ! {log, Name, Time, {received, Msg}},
-            loop(Name, Log, Peers, Sleep, Jitter);
+            Clock1 = logical_time:recv(Name, Clock, Time),
+            Log ! {log, Name, Clock1, {received, Msg}},
+            loop(Name, Log, Peers, Sleep, Jitter, Clock1);
         stop ->
             ok;
         Error ->
             Log ! {log, Name, time, {error, Error}}
     after Wait ->
         Selected = select(Peers),
-        Time = na,
+        Time = logical_time:inc(Name, Clock),
         Message = {hello, rand:uniform(100)},
         Selected ! {msg, Time, Message},
         jitter(Jitter),
         Log ! {log, Name, Time, {sending, Message}},
-        loop(Name, Log, Peers, Sleep, Jitter)
+        loop(Name, Log, Peers, Sleep, Jitter, Time)
     end.
 
 select(Peers) ->
