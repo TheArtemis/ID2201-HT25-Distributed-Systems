@@ -11,3 +11,5 @@ assignments/*/dumps/bench/
 **/texput.log
 
 *.zip
+
+**/dumps/*.csv
