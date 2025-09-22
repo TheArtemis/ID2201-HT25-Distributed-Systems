@@ -1,45 +1,45 @@
--module(loggy).
+-module(logical_loggy).
 -export([start/1, stop/1]).
 
 -define(OUTPUT, "./dumps/").
--define(TEST, "test_random").
+-define(TEST, "test_logical_random").
 -define(LOGS_OUTPUT, ?OUTPUT ++ "logs/").
 
--define(DUMP_QUEUE, true).
+-define(DUMP_QUEUE, false).
 -define(DUMP_LOGS, false).
--define(LOG, false).
+-define(LOG, true).
 
 start(Nodes) ->
     spawn_link(fun() -> init(Nodes) end).
 stop(Logger) ->
     Logger ! stop.
 init(Nodes) ->
-    loop(hb_queue:new(), vect:clock(Nodes)).
+    loop(logical_hb_queue:new(), logical_time:clock(Nodes)).
 
 loop(Queue, Clock) ->
     % At each iteration log all the safe messages
     dump(Queue),
-    {Safe, Unsafe} = hb_queue:partition(Queue, Clock),
+    {Safe, Unsafe} = logical_hb_queue:partition(Queue, Clock),
     log(Safe),
     receive
         {log, From, Time, Msg} ->
             %io:format("Clock before: ~w~n", [Clock]),
             %io:format("Message time: ~w~n", [Time]),
-            %io:format("Safe check: ~w~n", [vect:safe(Time, Clock)]),
-            case vect:safe(Time, Clock) of
+            %io:format("Safe check: ~w~n", [logical_time:safe(Time, Clock)]),
+            case logical_time:safe(Time, Clock) of
                 true ->
                     log(From, Time, Msg),
-                    UpdatedClock = vect:update(From, Time, Clock),
+                    UpdatedClock = logical_time:update(From, Time, Clock),
                     loop(Unsafe, UpdatedClock);
                 false ->
                     %io:format("queuing.. ~w ~w ~p~n", [Time, From, Msg]),
-                    Queue1 = hb_queue:add(From, Time, Msg, Unsafe),
-                    UpdatedClock = vect:update(From, Time, Clock),
+                    Queue1 = logical_hb_queue:add(From, Time, Msg, Unsafe),
+                    UpdatedClock = logical_time:update(From, Time, Clock),
                     loop(Queue1, UpdatedClock)
             end;
         stop ->
             % Flush remaining queue in order (use the full stored Queue)
-            Sorted = hb_queue:sort(Queue),
+            Sorted = logical_hb_queue:sort(Queue),
             dump(Sorted),
             log(Sorted),
             ok
@@ -69,7 +69,7 @@ log(Queue) ->
 dump(Queue) ->
     if
         ?DUMP_QUEUE ->
-            misc:append_to_csv(?OUTPUT ++ ?TEST ++ ".csv", {hb_queue:size(Queue)});
+            misc:append_to_csv(?OUTPUT ++ ?TEST ++ ".csv", {logical_hb_queue:size(Queue)});
         true ->
             ok
     end.

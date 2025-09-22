@@ -1,1 +1,7 @@
- ./start.sh 2000 500
+./start.sh 2000 500
+
+python3 assignments/HW3/src/python/plot.py 
+
+python3 assignments/HW3/src/python/check_lamport.py
+
+python3 assignments/HW3/src/python/check_vector.py

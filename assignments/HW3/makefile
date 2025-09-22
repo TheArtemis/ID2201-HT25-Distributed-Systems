@@ -1,4 +1,4 @@
-ERL_SOURCES := $(wildcard src/*.erl)
+ERL_SOURCES := $(shell find src -name '*.erl')
 BIN_DIR := bin
 DUMP_DIR := dumps
 ERL_OBJECTS := $(patsubst src/%.erl,$(BIN_DIR)/%.beam,$(ERL_SOURCES))

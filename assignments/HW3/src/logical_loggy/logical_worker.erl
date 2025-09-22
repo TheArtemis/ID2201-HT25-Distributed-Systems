@@ -1,4 +1,4 @@
--module(worker).
+-module(logical_worker).
 -export([start/5, stop/1, peers/2]).
 start(Name, Logger, Seed, Sleep, Jitter) ->
     spawn_link(fun() -> init(Name, Logger, Seed, Sleep, Jitter) end).
@@ -8,7 +8,7 @@ init(Name, Log, Seed, Sleep, Jitter) ->
     rand:seed(exsplus, {Seed, Seed, Seed}),
     receive
         {peers, Peers} ->
-            loop(Name, Log, Peers, Sleep, Jitter, vect:zero());
+            loop(Name, Log, Peers, Sleep, Jitter, logical_time:zero());
         stop ->
             ok
     end.
@@ -20,7 +20,7 @@ loop(Name, Log, Peers, Sleep, Jitter, Clock) ->
     Wait = rand:uniform(Sleep),
     receive
         {msg, Time, Msg} ->
-            Clock1 = vect:recv(Name, Clock, Time),
+            Clock1 = logical_time:recv(Name, Clock, Time),
             Log ! {log, Name, Clock1, {received, Msg}},
             loop(Name, Log, Peers, Sleep, Jitter, Clock1);
         stop ->
@@ -29,7 +29,7 @@ loop(Name, Log, Peers, Sleep, Jitter, Clock) ->
             Log ! {log, Name, time, {error, Error}}
     after Wait ->
         Selected = select(Peers),
-        Time = vect:inc(Name, Clock),
+        Time = logical_time:inc(Name, Clock),
         % Use more unique message ID: combine timestamp with large random number
         MessageId = rand:uniform(1000000),
         Message = {hello, MessageId},

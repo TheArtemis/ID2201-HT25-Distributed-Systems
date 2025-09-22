@@ -13,3 +13,4 @@ assignments/*/dumps/bench/
 *.zip
 
 **/dumps/*.csv
+**.pyc

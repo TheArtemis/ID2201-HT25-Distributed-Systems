@@ -1,4 +1,4 @@
--module(hb_queue).
+-module(logical_hb_queue).
 -export([new/0, add/4, get_safe/2, get_unsafe/2, sort/1, partition/2, size/1]).
 
 % Create a new empty queue
@@ -14,7 +14,7 @@ add(From, Time, Msg, Queue) ->
 % Returns {Safe, Unsafe} where both are sorted by timestamp
 partition(Queue, Clock) ->
     {Safe, Unsafe} = lists:partition(
-        fun({_F, T, _M}) -> vect:safe(T, Clock) end,
+        fun({_F, T, _M}) -> logical_time:safe(T, Clock) end,
         Queue
     ),
     {lists:keysort(2, Safe), lists:keysort(2, Unsafe)}.
