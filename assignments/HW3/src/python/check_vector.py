@@ -85,20 +85,8 @@ def check_vector_time(log_file_path):
     for log_file in log_files:
         print(f"\n=== Analyzing {log_file.name} ===")
         
-        # Track last known vector clock for each process
-        process_vectors = defaultdict(dict)
-        
-        # Track sent messages with their vector clocks
-        sent_messages = {}  # message_id -> (sender, vector_clock, timestamp)
-        
-        # Track received messages
-        received_messages = {}  # message_id -> [(receiver, vector_clock, timestamp), ...]
-        
-        violations = []
-        sender_receiver_violations = []
-        vector_violations = []
-        warnings = []
-        total_events = 0
+        # First pass: collect all events
+        all_events = []
         
         with open(log_file, "r") as f:
             for line_num, line in enumerate(f, 1):
@@ -144,81 +132,119 @@ def check_vector_time(log_file_path):
                 vector_clock_str = rest[:vector_end + 1]
                 message = rest[vector_end + 2:]  # Skip ],
                 
-                total_events += 1
-                
                 # Parse vector clock
                 current_vector = parse_vector_clock(vector_clock_str)
-                
-                # Check vector clock monotonicity for each process
-                if process_name in process_vectors:
-                    prev_vector = process_vectors[process_name]
-                    
-                    # Check if current vector is properly advanced from previous
-                    if not vector_clock_less_than_or_equal(prev_vector, current_vector):
-                        vector_violations.append(f"Line {line_num}: {process_name} vector clock not monotonic")
-                    
-                    # Check if process incremented its own clock
-                    prev_own_time = prev_vector.get(process_name, 0)
-                    curr_own_time = current_vector.get(process_name, 0)
-                    
-                    msg_type, inner_msg = parse_message(message)
-                    # For sending events, the process should increment its own clock
-                    if msg_type == 'sending' and curr_own_time <= prev_own_time:
-                        vector_violations.append(f"Line {line_num}: {process_name} didn't increment own clock on send: {prev_own_time} -> {curr_own_time}")
-                
-                process_vectors[process_name] = current_vector.copy()
                 
                 # Parse message content
                 msg_type, inner_msg = parse_message(message)
                 msg_id = extract_message_id(inner_msg)
                 
-                if msg_type == 'sending' and msg_id:
-                    # Record sent message
-                    sent_messages[msg_id] = (process_name, current_vector.copy(), timestamp)
+                all_events.append({
+                    'line_num': line_num,
+                    'timestamp': timestamp,
+                    'process': process_name,
+                    'vector': current_vector,
+                    'msg_type': msg_type,
+                    'msg_id': msg_id,
+                    'original_line': line
+                })
+        
+        # Second pass: analyze the events
+        # Track last known vector clock for each process
+        process_vectors = defaultdict(dict)
+        
+        # Track sent messages with their vector clocks
+        sent_messages = {}  # message_id -> (sender, vector_clock, line_num)
+        
+        # Track received messages
+        received_messages = {}  # message_id -> [(receiver, vector_clock, line_num), ...]
+        
+        violations = []
+        sender_receiver_violations = []
+        vector_violations = []
+        log_ordering_violations = []
+        warnings = []
+        total_events = len(all_events)
+        
+        for event in all_events:
+            line_num = event['line_num']
+            timestamp = event['timestamp']
+            process_name = event['process']
+            current_vector = event['vector']
+            msg_type = event['msg_type']
+            msg_id = event['msg_id']
+            
+            # Check vector clock monotonicity for each process
+            if process_name in process_vectors:
+                prev_vector = process_vectors[process_name]
                 
-                elif msg_type == 'received' and msg_id:
-                    # Record received message
-                    if msg_id not in received_messages:
-                        received_messages[msg_id] = []
-                    received_messages[msg_id].append((process_name, current_vector.copy(), timestamp))
+                # Check if current vector is properly advanced from previous
+                if not vector_clock_less_than_or_equal(prev_vector, current_vector):
+                    vector_violations.append(f"Line {line_num}: {process_name} vector clock not monotonic")
+                
+                # Check if process incremented its own clock
+                prev_own_time = prev_vector.get(process_name, 0)
+                curr_own_time = current_vector.get(process_name, 0)
+                
+                # For sending events, the process should increment its own clock
+                if msg_type == 'sending' and curr_own_time <= prev_own_time:
+                    vector_violations.append(f"Line {line_num}: {process_name} didn't increment own clock on send: {prev_own_time} -> {curr_own_time}")
+            
+            process_vectors[process_name] = current_vector.copy()
+            
+            if msg_type == 'sending' and msg_id:
+                # Record sent message
+                sent_messages[msg_id] = (process_name, current_vector.copy(), line_num)
+            
+            elif msg_type == 'received' and msg_id:
+                # Record received message
+                if msg_id not in received_messages:
+                    received_messages[msg_id] = []
+                received_messages[msg_id].append((process_name, current_vector.copy(), line_num))
+        
+        # Third pass: check message ordering violations
+        for msg_id in set(sent_messages.keys()) | set(received_messages.keys()):
+            if msg_id in sent_messages and msg_id in received_messages:
+                sender, send_vector, send_line = sent_messages[msg_id]
+                
+                for receiver, recv_vector, recv_line in received_messages[msg_id]:
+                    # Check sender/receiver relationship
+                    if sender == receiver:
+                        sender_receiver_violations.append(f"Line {recv_line}: {receiver} sent and received the same message {msg_id}")
                     
-                    # Check if we have the corresponding send event
-                    if msg_id in sent_messages:
-                        sender, send_vector, send_timestamp = sent_messages[msg_id]
-                        
-                        # Check sender/receiver relationship
-                        if sender == process_name:
-                            sender_receiver_violations.append(f"Line {line_num}: {process_name} sent and received the same message {msg_id}")
-                        
-                        # Check timestamp ordering (send should happen before receive)
-                        if timestamp < send_timestamp:
-                            sender_receiver_violations.append(f"Line {line_num}: Message {msg_id} received by {process_name} at timestamp {timestamp} before it was sent at timestamp {send_timestamp}")
-                        
-                        # For Vector clocks: send_vector should be < receive_vector
-                        if not vector_clock_less_than(send_vector, current_vector):
-                            violations.append(f"Line {line_num}: Vector clock violation - {process_name} received msg {msg_id} but send vector is not < receive vector")
-                            violations.append(f"  Send vector: {send_vector}")
-                            violations.append(f"  Receive vector: {current_vector}")
-                    else:
-                        # Message received but no corresponding send found yet
-                        # We'll check this at the end
-                        pass
+                    # Check log ordering (send should appear before receive in the log)
+                    if recv_line < send_line:
+                        log_ordering_violations.append(f"Message {msg_id}: received by {receiver} at line {recv_line} before it was sent by {sender} at line {send_line}")
+                    
+                    # For Vector clocks: send_vector should be < receive_vector
+                    if not vector_clock_less_than(send_vector, recv_vector):
+                        violations.append(f"Line {recv_line}: Vector clock violation - {receiver} received msg {msg_id} but send vector is not < receive vector")
+                        violations.append(f"  Send vector (line {send_line}): {send_vector}")
+                        violations.append(f"  Receive vector (line {recv_line}): {recv_vector}")
+                    
+                    # Additional check: receiver should have knowledge of sender's clock value at send time
+                    sender_time_at_send = send_vector.get(sender, 0)
+                    sender_time_at_receive = recv_vector.get(sender, 0)
+                    if sender_time_at_receive < sender_time_at_send:
+                        violations.append(f"Line {recv_line}: Vector clock inconsistency - {receiver} received msg {msg_id} from {sender} but receiver's knowledge of sender's time ({sender_time_at_receive}) is less than sender's time at send ({sender_time_at_send})")
+                        violations.append(f"  This suggests the message was received before it was sent according to vector clocks")
         
         # Check for orphaned messages
         for msg_id, receivers in received_messages.items():
             if msg_id not in sent_messages:
-                for receiver, receive_vector, receive_timestamp in receivers:
-                    warnings.append(f"Message {msg_id} was received by {receiver} but never sent by anyone")
+                for receiver, receive_vector, recv_line in receivers:
+                    warnings.append(f"Message {msg_id} was received by {receiver} (line {recv_line}) but never sent by anyone")
         
-        for msg_id, (sender, send_vector, send_timestamp) in sent_messages.items():
+        for msg_id, (sender, send_vector, send_line) in sent_messages.items():
             if msg_id not in received_messages:
-                warnings.append(f"Message {msg_id} was sent by {sender} but never received by anyone")
+                warnings.append(f"Message {msg_id} was sent by {sender} (line {send_line}) but never received by anyone")
         
         # Report results
         print(f"Total events processed: {total_events}")
         print(f"Vector clock violations: {len(violations)}")
         print(f"Vector clock monotonicity violations: {len(vector_violations)}")
         print(f"Sender/Receiver violations: {len(sender_receiver_violations)}")
+        print(f"Log ordering violations: {len(log_ordering_violations)}")
         print(f"Warnings: {len(warnings)}")
         
         if violations:
@@ -247,6 +273,15 @@ def check_vector_time(log_file_path):
                 print(f"  ... and {len(sender_receiver_violations) - 10} more violations")
         else:
             print("\n✅ No sender/receiver violations found!")
+        
+        if log_ordering_violations:
+            print("\n🚨 LOG ORDERING VIOLATIONS:")
+            for violation in log_ordering_violations[:10]:  # Show first 10 violations
+                print(f"  - {violation}")
+            if len(log_ordering_violations) > 10:
+                print(f"  ... and {len(log_ordering_violations) - 10} more violations")
+        else:
+            print("\n✅ No log ordering violations found!")
         
         if warnings:
             print("\n⚠️  WARNINGS:")

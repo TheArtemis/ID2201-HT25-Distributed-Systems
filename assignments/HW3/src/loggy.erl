@@ -2,11 +2,11 @@
 -export([start/1, stop/1]).
 
 -define(OUTPUT, "./dumps/").
--define(TEST, "test_random").
+-define(TEST, "test_ordering_vec").
 -define(LOGS_OUTPUT, ?OUTPUT ++ "logs/").
 
--define(DUMP_QUEUE, true).
--define(DUMP_LOGS, false).
+-define(DUMP_QUEUE, false).
+-define(DUMP_LOGS, true).
 -define(LOG, false).
 
 start(Nodes) ->
@@ -17,28 +17,18 @@ init(Nodes) ->
     loop(hb_queue:new(), vect:clock(Nodes)).
 
 loop(Queue, Clock) ->
-    % At each iteration log all the safe messages
     dump(Queue),
-    {Safe, Unsafe} = hb_queue:partition(Queue, Clock),
-    log(Safe),
     receive
         {log, From, Time, Msg} ->
-            %io:format("Clock before: ~w~n", [Clock]),
-            %io:format("Message time: ~w~n", [Time]),
-            %io:format("Safe check: ~w~n", [vect:safe(Time, Clock)]),
-            case vect:safe(Time, Clock) of
-                true ->
-                    log(From, Time, Msg),
-                    UpdatedClock = vect:update(From, Time, Clock),
-                    loop(Unsafe, UpdatedClock);
-                false ->
-                    %io:format("queuing.. ~w ~w ~p~n", [Time, From, Msg]),
-                    Queue1 = hb_queue:add(From, Time, Msg, Unsafe),
-                    UpdatedClock = vect:update(From, Time, Clock),
-                    loop(Queue1, UpdatedClock)
-            end;
+            UpdatedClock = vect:update(From, Time, Clock),
+            Queue1 = hb_queue:add(From, Time, Msg, Queue),
+            {Safe, Unsafe} = hb_queue:partition(Queue1, UpdatedClock),
+
+            % Log all safe messages
+            log(Safe),
+
+            loop(Unsafe, UpdatedClock);
         stop ->
-            % Flush remaining queue in order (use the full stored Queue)
             Sorted = hb_queue:sort(Queue),
             dump(Sorted),
             log(Sorted),
