@@ -1,0 +1,16 @@
+0,bob,[{bob,5},{eve,4},{dave,5},{alice,3}],{received,{hello,517919}}
+0,alice,[{alice,3}],{sending,{hello,517919}}
+0,carol,[{carol,2},{alice,1}],{sending,{hello,704915}}
+0,bob,[{bob,4},{eve,4},{dave,5},{alice,2}],{received,{hello,470619}}
+0,dave,[{dave,4},{bob,2},{alice,2},{eve,2}],{received,{hello,779490}}
+0,eve,[{eve,4},{dave,5},{bob,2},{alice,2}],{sending,{hello,470619}}
+0,bob,[{bob,6},{eve,4},{dave,5},{alice,3}],{sending,{hello,129910}}
+0,alice,[{alice,4},{bob,6},{eve,4},{dave,5}],{received,{hello,129910}}
+0,eve,[{eve,3},{dave,5},{bob,2},{alice,2}],{received,{hello,666408}}
+0,dave,[{dave,5},{bob,2},{alice,2},{eve,2}],{sending,{hello,666408}}
+0,dave,[{dave,6},{bob,2},{alice,2},{eve,2},{carol,2}],{received,{hello,704915}}
+0,dave,[{dave,1},{bob,2},{alice,2},{eve,2},{carol,2}],{sending,{hello,653169}}
+0,bob,[{bob,7},{eve,4},{dave,5},{alice,3}],{sending,{hello,999999}}
+0,bob,[{bob,8},{eve,4},{dave,5},{alice,3}],{received,{hello,999999}}
+0,carol,[{carol,3},{alice,5},{bob,7}],{sending,{hello,888888}}
+0,alice,[{alice,4},{bob,6},{eve,4},{dave,5}],{received,{hello,888888}}

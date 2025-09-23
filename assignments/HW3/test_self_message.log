@@ -1,0 +1,4 @@
+0,alice,[{alice,1}],{sending,{hello,12345}}
+0,alice,[{alice,2}],{received,{hello,12345}}
+0,bob,[{bob,1}],{sending,{hello,67890}}
+0,bob,[{bob,2}],{received,{hello,67890}}

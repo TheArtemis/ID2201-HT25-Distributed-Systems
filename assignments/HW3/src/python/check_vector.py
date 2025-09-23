@@ -160,7 +160,7 @@ def check_vector_time(log_file_path):
         received_messages = {}  # message_id -> [(receiver, vector_clock, line_num), ...]
         
         violations = []
-        sender_receiver_violations = []
+        self_message_violations = []
         vector_violations = []
         log_ordering_violations = []
         warnings = []
@@ -208,9 +208,9 @@ def check_vector_time(log_file_path):
                 sender, send_vector, send_line = sent_messages[msg_id]
                 
                 for receiver, recv_vector, recv_line in received_messages[msg_id]:
-                    # Check sender/receiver relationship
+                    # Check for self-messaging (process sending message to itself)
                     if sender == receiver:
-                        sender_receiver_violations.append(f"Line {recv_line}: {receiver} sent and received the same message {msg_id}")
+                        self_message_violations.append(f"Line {recv_line}: {receiver} sent and received the same message {msg_id} (self-message)")
                     
                     # Check log ordering (send should appear before receive in the log)
                     if recv_line < send_line:
@@ -222,12 +222,14 @@ def check_vector_time(log_file_path):
                         violations.append(f"  Send vector (line {send_line}): {send_vector}")
                         violations.append(f"  Receive vector (line {recv_line}): {recv_vector}")
                     
-                    # Additional check: receiver should have knowledge of sender's clock value at send time
+                    # Check if receiver properly updated their knowledge of sender's time
+                    # When receiving a message from sender, receiver should update their knowledge of sender
+                    # to be at least as current as sender's timestamp in the message
                     sender_time_at_send = send_vector.get(sender, 0)
                     sender_time_at_receive = recv_vector.get(sender, 0)
                     if sender_time_at_receive < sender_time_at_send:
-                        violations.append(f"Line {recv_line}: Vector clock inconsistency - {receiver} received msg {msg_id} from {sender} but receiver's knowledge of sender's time ({sender_time_at_receive}) is less than sender's time at send ({sender_time_at_send})")
-                        violations.append(f"  This suggests the message was received before it was sent according to vector clocks")
+                        violations.append(f"Line {recv_line}: Vector clock update violation - {receiver} received msg {msg_id} from {sender} but didn't properly update knowledge of sender's time")
+                        violations.append(f"  Sender's time at send: {sender_time_at_send}, Receiver's knowledge of sender: {sender_time_at_receive}")
         
         # Check for orphaned messages
         for msg_id, receivers in received_messages.items():
@@ -243,7 +245,7 @@ def check_vector_time(log_file_path):
         print(f"Total events processed: {total_events}")
         print(f"Vector clock violations: {len(violations)}")
         print(f"Vector clock monotonicity violations: {len(vector_violations)}")
-        print(f"Sender/Receiver violations: {len(sender_receiver_violations)}")
+        print(f"Self-message violations: {len(self_message_violations)}")
         print(f"Log ordering violations: {len(log_ordering_violations)}")
         print(f"Warnings: {len(warnings)}")
         
@@ -265,14 +267,14 @@ def check_vector_time(log_file_path):
         else:
             print("\n✅ No vector clock monotonicity violations found!")
         
-        if sender_receiver_violations:
-            print("\n🚨 SENDER/RECEIVER VIOLATIONS:")
-            for violation in sender_receiver_violations[:10]:  # Show first 10 violations
+        if self_message_violations:
+            print("\n🚨 SELF-MESSAGE VIOLATIONS:")
+            for violation in self_message_violations[:10]:  # Show first 10 violations
                 print(f"  - {violation}")
-            if len(sender_receiver_violations) > 10:
-                print(f"  ... and {len(sender_receiver_violations) - 10} more violations")
+            if len(self_message_violations) > 10:
+                print(f"  ... and {len(self_message_violations) - 10} more violations")
         else:
-            print("\n✅ No sender/receiver violations found!")
+            print("\n✅ No self-message violations found!")
         
         if log_ordering_violations:
             print("\n🚨 LOG ORDERING VIOLATIONS:")
