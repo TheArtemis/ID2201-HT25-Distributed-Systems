@@ -126,4 +126,6 @@ Sometimes it happens that a message appears to received without being sent first
 
 To wrap it up I have implemented a logger that uses logical time to order messages in a distributed system. The logger is able to handle messages that are received out of order and log them in the correct order based on their logical timestamps. The implementation of a holdback queue and a vector clock further improves the logging order and ensures that the messages are logged in a causally consistent manner.
 
+For further improvements we could handle a better way of generating unique message IDs to avoid collisions. We could also implement a more efficient way of checking the holdback queue for safe messages to log, for example by using a priority queue.
+
 \end{document}
