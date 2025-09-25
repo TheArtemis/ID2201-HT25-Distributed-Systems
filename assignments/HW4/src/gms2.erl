@@ -2,6 +2,8 @@
 
 -export([leader/4, slave/5, start/1, start/2, init/2, init/3]).
 
+-define(timeout, 2000).
+
 start(Id) ->
     Self = self(),
     {ok, spawn_link(fun() -> init(Id, Self) end)}.
@@ -20,6 +22,8 @@ init(Id, Grp, Master) ->
         {view, [Leader | Slaves], Group} ->
             Master ! {view, Group},
             slave(Id, Master, Leader, Slaves, Group)
+    after ?timeout ->
+        Master ! {error, "no reply from leader"}
     end.
 
 % Start a worker given:
@@ -54,7 +58,7 @@ slave(Id, Master, Leader, Slaves, Group) ->
         {mcast, Msg} ->
             Leader ! {mcast, Msg},
             slave(Id, Master, Leader, Slaves, Group);
-        % equest from the master to allow a new node to join the group, the message is forwarded to the leader
+        % request from the master to allow a new node to join the group, the message is forwarded to the leader
         {join, Wrk, Peer} ->
             Leader ! {join, Wrk, Peer},
             slave(Id, Master, Leader, Slaves, Group);
