@@ -1,4 +1,4 @@
--module(gms3).
+-module(gms2p5).
 
 -export([leader/4, slave/5, start/1, start/2, init/3, init/4]).
 
