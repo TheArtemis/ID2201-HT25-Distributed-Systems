@@ -1,21 +1,26 @@
 -module(gms3).
 
--export([leader/4, slave/5, start/1, start/2, init/2, init/3]).
+-export([leader/4, slave/5, start/1, start/2, init/3, init/4]).
 
 -define(timeout, 2000).
+-define(arghh, 100). % Once every 100
 
 start(Id) ->
+    Rnd = rand:uniform(1000),
     Self = self(),
-    {ok, spawn_link(fun() -> init(Id, Self) end)}.
+    {ok, spawn_link(fun() -> init(Id, Rnd, Self) end)}.
 
-init(Id, Master) ->
+init(Id, Rnd, Master) ->
+    rand:seed(default, {Rnd, Rnd, Rnd}),
     leader(Id, Master, [], [Master]).
 
 start(Id, Grp) ->
     Self = self(),
-    {ok, spawn_link(fun() -> init(Id, Grp, Self) end)}.
+    Rnd = rand:uniform(1000),
+    {ok, spawn_link(fun() -> init(Id, Rnd, Grp, Self) end)}.
 
-init(Id, Grp, Master) ->
+init(Id, Rnd, Grp, Master) ->
+    rand:seed(default, {Rnd, Rnd, Rnd}),
     Self = self(),
     Grp ! {join, Master, Self},
     receive
@@ -76,9 +81,6 @@ slave(Id, Master, Leader, Slaves, Group) ->
             ok
     end.
 
-bcast(_Id, Msg, Nodes) ->
-    lists:foreach(fun(Node) -> Node ! Msg end, Nodes).
-
 election(Id, Master, Slaves, [_ | Group]) ->
     Self = self(),
     case Slaves of
@@ -89,4 +91,20 @@ election(Id, Master, Slaves, [_ | Group]) ->
         [Leader | Rest] ->
             erlang:monitor(process, Leader),
             slave(Id, Master, Leader, Rest, Group)
+    end.
+
+bcast(Id, Msg, Nodes) ->
+    lists:foreach(fun(Node) ->
+                     Node ! Msg,
+                     crash(Id)
+                  end,
+                  Nodes).
+
+crash(Id) ->
+    case rand:uniform(?arghh) of
+        ?arghh ->
+            io:format("leader ~w: crash~n", [Id]),
+            exit(no_luck);
+        _ ->
+            ok
     end.
