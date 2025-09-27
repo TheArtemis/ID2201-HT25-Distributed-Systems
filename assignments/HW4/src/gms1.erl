@@ -28,7 +28,6 @@ init(Id, Grp, Master) ->
 % Slaves: an ordered list of the process identifiers of all slaves in the group
 % Group: a list of all application layer processes in the group
 
-%                   %WRK   %SLAVES
 leader(Id, Master, Slaves, Group) ->
     receive
         {mcast, Msg} ->
