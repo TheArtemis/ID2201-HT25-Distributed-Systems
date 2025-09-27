@@ -114,6 +114,7 @@ election(Id, Master, N, Last, Slaves, [_ | Group]) ->
             end,
             bcast(Id, {view, N, Slaves, Group}, Rest),
             Master ! {view, Group},
+            io:format("leader ~w: I am the new leader!~n", [Id]),
             leader(Id, Master, N + 1, Rest, Group);
         [Leader | Rest] ->
             erlang:monitor(process, Leader),
