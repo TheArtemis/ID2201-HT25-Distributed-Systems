@@ -47,6 +47,19 @@ The implementation of gms2 shows the presented improvements and the system can h
 
 \subsection{Showing that we cannot dance}
 
+While our gms2 implementation handles leader crashes effectively, it fails to guarantee true view synchrony when failures occur during message broadcasting. To demonstrate this limitation, we introduced random crashes in the broadcast function (gms2p5), where the leader might crash after sending a message to only some slaves.
+
+This creates a critical problem: when the leader crashes mid-broadcast, some group members receive the message while others don't, leading to inconsistent states. Even after a new leader is elected, the group remains permanently out of sync because there's no mechanism to detect or recover from partial message delivery. This violates the reliability property of view synchrony, which requires that if any correct node delivers a message, all correct nodes must deliver it.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.7\textwidth]{imgs/out_of_sync.png}
+  \caption{Peers out of sync after crash mid-broadcast.}
+  \label{fig:out_of_sync}
+\end{figure}
+
+
+
 \section{Conclusions}
 
 \end{document}
