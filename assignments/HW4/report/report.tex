@@ -45,7 +45,7 @@ With this system in place we can see that if the leader crashes, one of the slav
 
 The implementation of gms2 shows the presented improvements and the system can handle leader crashes effectively.
 
-\subsection{Showing that we cannot dance}
+\subsection{Actually we cannot dance}
 
 While our gms2 implementation handles leader crashes effectively, it fails to guarantee true view synchrony when failures occur during message broadcasting. To demonstrate this limitation, we introduced random crashes in the broadcast function (gms2p5), where the leader might crash after sending a message to only some slaves.
 
@@ -58,7 +58,16 @@ This creates a critical problem: when the leader crashes mid-broadcast, some gro
   \label{fig:out_of_sync}
 \end{figure}
 
+\subsection{Being more reliable dancers}
+Starting from some assumptions we can implement a more robust multicasting protocol to address the issue where the leader crashes during message broadcasting.
 
+Assuming that messages are reliably delivered and thus if the leader sends a message to S1 and then to S2 and S2 receives it, then S1 must have received it too, hence if one of the peers has received the message it means that for sure the first peer in the list has received it too.
+
+When the leader crashes during the multicast procedure we can assume that some of the slaves might have not received the message. But keeping track of the last received message, when the new leader is elected it can send the last message again to all slaves, hence syncronizing also the ones that did not receive it the first time.
+
+To avoid receiving the same message twice, hence shifting forward the state of the application we can introduce sequence numbers in our messages, so that if a peer receives a message with a sequence number lower or equal to the last one received it can just ignore it.
+
+The implementation of gms3 shows the presented improvements and the system can handle leader crashes effectively while also guaranteeing view synchrony.
 
 \section{Conclusions}
 
