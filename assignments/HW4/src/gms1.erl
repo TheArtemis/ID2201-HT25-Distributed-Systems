@@ -24,7 +24,7 @@ init(Id, Grp, Master) ->
 
 % Start a worker given:
 % Id: a unique interger, only used for debugging
-% Master: rocess identifier of the application layer
+% Master: process identifier of the application layer
 % Slaves: an ordered list of the process identifiers of all slaves in the group
 % Group: a list of all application layer processes in the group
 
