@@ -1,7 +1,10 @@
 -module(gui).
+
 -define(width, 200).
 -define(height, 200).
+
 -export([start/2]).
+
 -include_lib("wx/include/wx.hrl").
 
 start(Title, Master) ->
@@ -13,7 +16,7 @@ init(Title, Master) ->
 
 make_window(Title) ->
     Server = wx:new(),  %Server will be the parent for the Frame
-    Frame = wxFrame:new(Server, -1, Title, [{size,{?width, ?height}}]),
+    Frame = wxFrame:new(Server, -1, Title, [{size, {?width, ?height}}]),
     wxFrame:setBackgroundColour(Frame, ?wxBLACK),
     Window = wxWindow:new(Frame, ?wxID_ANY),
     wxFrame:show(Frame),
@@ -23,21 +26,21 @@ make_window(Title) ->
     wxFrame:connect(Frame, close_window),
     Window.
 
-loop(Window, Master)->
+loop(Window, Master) ->
     receive
-	%% check if the window was closed by the user
-	#wx{event=#wxClose{}} ->
-	    wxWindow:destroy(Window),  
-	    Master ! stop,
-	    ok;
-	{color, Color} ->
-	    color(Window, Color),
-	    loop(Window, Master);
-	stop ->
-	    ok;
-	Error ->
-	    io:format("gui: strange message ~w ~n", [Error]),
-	    loop(Window, Master)
+        %% check if the window was closed by the user
+        #wx{event = #wxClose{}} ->
+            wxWindow:destroy(Window),
+            Master ! stop,
+            ok;
+        {color, Color} ->
+            color(Window, Color),
+            loop(Window, Master);
+        stop ->
+            ok;
+        Error ->
+            io:format("gui: strange message ~w ~n", [Error]),
+            loop(Window, Master)
     end.
 
 color(Window, Color) ->
