@@ -3,7 +3,7 @@
 -export([leader/5, slave/7, start/1, start/2, init/3, init/4]).
 
 -define(timeout, 2000).
--define(arghh, 100). % Once every 100
+%-define(arghh, 100). % Once every 100
 -define(drop_rate, 100). % Drop 1 in 100 messages
 
 % Reliability:
@@ -137,11 +137,11 @@ send_with_drop(Node, Msg) ->
             Node ! Msg
     end.
 
-crash(Id) ->
-    case rand:uniform(?arghh) of
-        ?arghh ->
-            io:format("leader ~w: crash~n", [Id]),
-            exit(no_luck);
-        _ ->
-            ok
-    end.
+%% crash(Id) ->
+%%     case rand:uniform(?arghh) of
+%%         ?arghh ->
+%%             io:format("leader ~w: crash~n", [Id]),
+%%             exit(no_luck);
+%%         _ ->
+%%             ok
+%%     end.
