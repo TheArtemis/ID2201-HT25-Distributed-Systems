@@ -67,3 +67,44 @@ W10 = test:add(10, gms3, W9, 1000).
 W11 = test:add(11, gms3, W10, 1000).
 
 test:add(12, gms3, W11, 1000).
+
+
+# GMS3p5
+
+W1 = test:first(1, gms3p5, 1000).
+
+W2 = test:add(2, gms3p5, W1, 1000).
+
+W3 = test:add(3, gms3p5, W2, 1000).
+
+W4 = test:add(4, gms3p5, W3, 1000).
+
+W5 = test:add(5, gms3p5, W4, 1000).
+
+W6 = test:add(6, gms3p5, W5, 1000).
+
+W7 = test:add(7, gms3p5, W6, 1000).
+
+W8 = test:add(8, gms3p5, W7, 1000).
+
+W9 = test:add(9, gms3p5, W8, 1000).
+
+W10 = test:add(10, gms3p5, W9, 1000).
+
+W11 = test:add(11, gms3p5, W10, 1000).
+
+test:add(12, gms3p5, W11, 1000).
+
+# GMSX
+
+W1 = test:first(1, gmsX, 1000).
+
+W2 = test:add(2, gmsX, W1, 1000).
+
+W3 = test:add(3, gmsX, W2, 1000).
+
+W4 = test:add(4, gmsX, W3, 1000).
+
+W5 = test:add(5, gmsX, W4, 1000).
+
+test:add(6, gmsX, W5, 1000).
