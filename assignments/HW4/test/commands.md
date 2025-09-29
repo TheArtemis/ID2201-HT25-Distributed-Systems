@@ -121,4 +121,6 @@ W4 = test:add(4, gmsXPro, W3, 1000).
 
 W5 = test:add(5, gmsXPro, W4, 1000).
 
-test:add(6, gmsXPro, W1, 1000).
+test:add(8, gmsXPro, W1, 1000).
+
+W1 = test:more(7, gmsXPro, 1000).

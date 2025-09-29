@@ -72,11 +72,19 @@ The implementation gms3 demonstrates these improvements: it handles leader crash
 Our implementation so far assumes that messages are reliably delivered. In a real-world scenario this might not be the case. To demonstrate the effect of message loss, I added a random drop chance in the broadcast function (gms3p5). When the leader broadcasts a message, some slaves might not receive it. A slave that misses a message will then expect an earlier sequence number and ignore subsequent messages, causing it to freeze in its state.
 
 \subsection{Speaking up for yourself}
-To address this issue we implemented the following:
+To address this issue, we implemented the following:
 
 The leader keeps a history buffer of the last 100 messages sent. When a slave receives a message, it checks the sequence number. If the sequence number is higher than expected, some messages were lost. The slave then sends a NACK to the leader, specifying the sequence number of the last message it received correctly. The leader resends all messages from the history buffer starting from that sequence number.
 
-The implementation gmsX shows that sometimes messages are lost and the sync is briefly interrupted, but slaves request the missing messages and quickly catch up.
+The implementation gmsX shows that sometimes messages are lost and the synchronization is briefly interrupted, but slaves request the missing messages and quickly catch up.
+
+Still, this is not enough. If the leader crashes in the middle of handling a NACK, the new leader will not have the history buffer of the old leader and will not be able to resend the missing messages.
+
+To solve this, we need to buffer messages on the slaves as well. Each slave keeps a buffer of the last 10 messages it received. When a new leader is elected, it requests this buffer from all slaves. The new leader merges these buffers to reconstruct the history of messages and can then resend any missing messages to slaves that need them.
+
+This also works if the node that's elected as the new leader was missing some messages before the election, as it can get them from other slaves. The only remaining step is to update the Master on the application layer with the messages and ta-da! We have a robust group membership service that provides atomic multicasting in view synchrony while tolerating crash failures and message loss.
+
+The implementation of gmsXPro demonstrates our best group membership service yet.
 
 \section{Conclusions}
 
@@ -85,11 +93,6 @@ In this assignment we implemented a group membership service that provides atomi
 The NACK mechanism has low overhead and is quite efficient since it generates extra traffic only when the network is lossy.
 
 Another approach to handle message loss is to use positive acknowledgments, where each slave acknowledges the receipt of each message. However, this would generate much more traffic and would not scale well with a large number of slaves.
-
-\subsection{Leader crash and lost history}
-Both approaches assume the leader's history is intact when a new leader is elected. A remaining problem is leader volatility: if the leader crashes before it can retransmit, its in-memory history may be lost.
-
-A possible mitigation is persisting the leader's log to stable storage before multicasting, or querying the slaves for their last received message during leader election to reconstruct the history.
 
 \begin{figure}[H]
   \centering
