@@ -108,3 +108,17 @@ W4 = test:add(4, gmsX, W3, 1000).
 W5 = test:add(5, gmsX, W4, 1000).
 
 test:add(6, gmsX, W5, 1000).
+
+# GMSXPro
+
+W1 = test:first(1, gmsXPro, 1000).
+
+W2 = test:add(2, gmsXPro, W1, 1000).
+
+W3 = test:add(3, gmsXPro, W2, 1000).
+
+W4 = test:add(4, gmsXPro, W3, 1000).
+
+W5 = test:add(5, gmsXPro, W4, 1000).
+
+test:add(6, gmsXPro, W1, 1000).
