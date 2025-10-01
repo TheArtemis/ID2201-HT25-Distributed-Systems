@@ -3,7 +3,7 @@
 -export([leader/6, slave/8, start/1, start/2, init/3, init/4]).
 
 -define(timeout, 2000).
--define(arghh, 10000). % Once every 10000
+-define(arghh, 100). % Once every 100
 -define(drop_rate, 100). % Drop 1 in 100 messages
 -define(history_size, 100). % Keep last 100 messages for retransmit
 -define(nack_crash_rate, 10).
@@ -130,9 +130,12 @@ election(Id, Master, N, Last, Slaves, [_ | Group], Buffer) ->
     case Slaves of
         [Self | Rest] ->
             io:format("leader ~w: starting history recovery from ~w members~n", [Id, length(Rest)]),
-            RecoveredHistory = recover_history(Rest, Buffer),
             io:format("leader ~w: my buffer before recovery: ~p~n", [Id, buffer:to_list(Buffer)]),
-            io:format("leader ~w: recovered history: ~p~n", [Id, buffer:to_list(RecoveredHistory)]),
+
+            RecoveredHistory = collect_history_from_slaves(Rest, Buffer, 2000),
+
+            io:format("leader ~w: final recovered history: ~p~n",
+                      [Id, buffer:to_list(RecoveredHistory)]),
             io:format("leader ~w: recovered ~w entries in history~n",
                       [Id, buffer:size(RecoveredHistory)]),
 
@@ -179,26 +182,41 @@ send_with_drop(Node, Msg) ->
             Node ! Msg
     end.
 
-% Recover history from slaves during leader election
-recover_history(Slaves, Buffer) ->
+collect_history_from_slaves(Slaves, OwnBuffer, Timeout) ->
     % Request history from all slaves
     lists:foreach(fun(Slave) -> Slave ! {history, self()} end, Slaves),
     % Collect responses and merge with own buffer
-    wait_for_history(Slaves, Buffer, 2000).
+    AllEntries = wait_for_history(Slaves, buffer:to_list(OwnBuffer), Timeout),
 
-wait_for_history([], History, _Timeout) ->
-    History;
-wait_for_history(Pending, History, Timeout) ->
+    % Remove duplicates and sort by sequence number
+    UniqueEntries = lists:usort(fun({SeqA, _}, {SeqB, _}) -> SeqA =< SeqB end, AllEntries),
+    io:format("Merged and sorted ~w unique entries~n", [length(UniqueEntries)]),
+
+    RecentEntries =
+        case length(UniqueEntries) > ?history_size of
+            true ->
+                lists:nthtail(length(UniqueEntries) - ?history_size, UniqueEntries);
+            false ->
+                UniqueEntries
+        end,
+
+    io:format("Keeping ~w most recent entries~n", [length(RecentEntries)]),
+
+    NewHistory = buffer:new(?history_size),
+    lists:foldl(fun(Entry, Acc) -> buffer:add(Acc, Entry) end, NewHistory, RecentEntries).
+
+wait_for_history([], Collected, _Timeout) ->
+    Collected;
+wait_for_history(Pending, Collected, Timeout) ->
     receive
         {history, SlaveHistory, From} ->
-            % Merge slave history into our buffer
-            NewHistory =
-                lists:foldl(fun(Entry, Acc) -> buffer:add(Acc, Entry) end, History, SlaveHistory),
-            wait_for_history(lists:delete(From, Pending), NewHistory, Timeout)
+            % Append slave history to collected list
+            NewCollected = Collected ++ SlaveHistory,
+            wait_for_history(lists:delete(From, Pending), NewCollected, Timeout)
     after Timeout ->
-        io:format("History recovery timeout, proceeding with ~w entries~n",
-                  [buffer:size(History)]),
-        History
+        io:format("History recovery timeout, proceeding with ~w collected entries~n",
+                  [length(Collected)]),
+        Collected
     end.
 
 add_to_history(History, Seq, T) ->

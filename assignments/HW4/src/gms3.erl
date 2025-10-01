@@ -3,7 +3,7 @@
 -export([leader/5, slave/7, start/1, start/2, init/3, init/4]).
 
 -define(timeout, 2000).
--define(arghh, 100). % Once every 100
+-define(arghh, 300). % Once every 100
 
 % Reliability:
 % If L -> A & L -> B:
