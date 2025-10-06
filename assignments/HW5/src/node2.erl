@@ -4,6 +4,7 @@
 
 -define(STABILIZE, 300).
 -define(TIMEOUT, 10000).
+-define(LOG, true).
 
 start(Id) ->
     start(Id, nil).
@@ -16,7 +17,9 @@ init(Id, Peer) ->
     Predecessor = nil,
     {ok, Successor} = connect(Id, Peer),
     schedule_stabilize(),
-    node(Id, Predecessor, Successor).
+    % Create the store once and thread it through the node loop
+    Store = storage:create(),
+    node(Id, Predecessor, Successor, Store).
 
 connect(Id, nil) ->
     % We are the first node, so we are our own successor
@@ -37,45 +40,57 @@ connect(_Id, Peer) ->
 
 % A Peer will be: {Key, Pid}
 
-node(Id, Predecessor, Successor) ->
+node(Id, Predecessor, Successor, Store) ->
     receive
-        % Peer needs to know our jey
+        % Peer needs to know our key
         {key, Qref, Peer} ->
             Peer ! {Qref, Id},
-            node(Id, Predecessor, Successor);
+            node(Id, Predecessor, Successor, Store);
         % New node informs us of its existence
         {notify, New} ->
-            Pred = notify(New, Id, Predecessor),
-            node(Id, Pred, Successor);
+            {Pred, Keep} = notify(New, Id, Predecessor, Store),
+            node(Id, Pred, Successor, Keep);
         % Predecessor needs to know our predecessor
         {request, Peer} ->
             request(Peer, Predecessor),
-            node(Id, Predecessor, Successor);
+            node(Id, Predecessor, Successor, Store);
         % Syccessor informs us about it's predecessor
         {status, Pred} ->
             Succ = stabilize(Pred, Id, Successor),
-            node(Id, Predecessor, Succ);
+            node(Id, Predecessor, Succ, Store);
         stabilize ->
             stabilize(Successor),
-            node(Id, Predecessor, Successor);
+            node(Id, Predecessor, Successor, Store);
         info ->
             io:format("Node ~w: Predecessor: ~w, Successor: ~w~n", [Id, Predecessor, Successor]),
-            node(Id, Predecessor, Successor);
+            node(Id, Predecessor, Successor, Store);
         die ->
             io:format("Node ~w: I'm being forced to die~n", [Id]),
             ok;
         probe ->
             create_probe(Id, Successor),
-            node(Id, Predecessor, Successor);
+            node(Id, Predecessor, Successor, Store);
         {probe, Id, Nodes, T} ->
             remove_probe(T, Nodes),
-            node(Id, Predecessor, Successor);
+            node(Id, Predecessor, Successor, Store);
         {probe, Ref, Nodes, T} ->
             forward_probe(Ref, T, Nodes, Successor),
-            node(Id, Predecessor, Successor);
+            node(Id, Predecessor, Successor, Store);
+        % Qref is used to tag the return message to the Client.
+        % Client will be able to identify the reply message
+        {add, Key, Value, Qref, Client} ->
+            Added = add(Key, Value, Qref, Client, Id, Predecessor, Successor, Store),
+            node(Id, Predecessor, Successor, Added);
+        {lookup, Key, Qref, Client} ->
+            lookup(Key, Qref, Client, Id, Predecessor, Successor, Store),
+            node(Id, Predecessor, Successor, Store);
+        {handover, Elements} ->
+            % Merge received elements into our store (Entries, Store)
+            Merged = storage:merge(Elements, Store),
+            node(Id, Predecessor, Successor, Merged);
         _ ->
             io:format("Node ~w: Unexpected message~n", [Id]),
-            node(Id, Predecessor, Successor)
+            node(Id, Predecessor, Successor, Store)
     end.
 
 % Send stabilization message after a timer
@@ -114,21 +129,23 @@ stabilize(Pred, Id, Successor) ->
             end
     end.
 
-notify({Nkey, Npid}, Id, Predecessor) ->
+notify({Nkey, Npid}, Id, Predecessor, Store) ->
     case Predecessor of
         nil ->
             % We have no predecessor, so accept the new node
-            {Nkey, Npid};
+            Keep = handover(Id, Store, Nkey, Npid),
+            {{Nkey, Npid}, Keep};
         {Pkey, _} ->
             case key:between(Nkey, Pkey, Id) of
                 true ->
                     % The new node is between our predecessor and us
                     % So it should be our new predecessor
-                    {Nkey, Npid};
+                    Keep = handover(Id, Store, Nkey, Npid),
+                    {{Nkey, Npid}, Keep};
                 false ->
                     % The new node is not between our predecessor and us
                     % So we keep our current predecessor
-                    Predecessor
+                    {Predecessor, Store}
             end
     end.
 
@@ -161,3 +178,38 @@ remove_probe(T, Nodes) ->
 forward_probe(Ref, T, Nodes, Successor) ->
     {_, Spid} = Successor,
     Spid ! {probe, Ref, [self() | Nodes], T}.
+
+%% Add and Lookup functions
+
+add(Key, Value, Qref, Client, Id, {Pkey, _}, {_, Spid}, Store) ->
+    case key:between(Key, Pkey, Id) of
+        true ->
+            Client ! {Qref, ok},
+            ?LOG andalso io:format("Node ~w: Adding key ~w with value ~w~n", [Id, Key, Value]),
+            storage:add(Key, Value, Store);
+        false ->
+            ?LOG
+            andalso io:format("Node ~w: Forwarding add request for key ~w to client ~w~n",
+                              [Id, Key, Client]),
+            Spid ! {add, Key, Value, Qref, Client},
+            Store
+    end.
+
+lookup(Key, Qref, Client, Id, {Pkey, _}, Successor, Store) ->
+    case key:between(Key, Pkey, Id) of
+        true ->
+            Result = storage:lookup(Key, Store),
+            ?LOG andalso io:format("Node ~w: looking up key ~w -> ~p~n", [Id, Key, Result]),
+            Client ! {Qref, Result};
+        false ->
+            {_, Spid} = Successor,
+            ?LOG
+            andalso io:format("Node ~w: Forwarding lookup request for key ~w to client ~w~n",
+                              [Id, Key, Client]),
+            Spid ! {lookup, Key, Qref, Client}
+    end.
+
+handover(Id, Store, Nkey, Npid) ->
+    {Keep, Rest} = storage:split(Id, Nkey, Store),
+    Npid ! {handover, Rest},
+    Keep.
