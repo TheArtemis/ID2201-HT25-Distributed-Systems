@@ -35,7 +35,7 @@ kill_node() {
     fi
 }
 
-kill_node "groupy"
+kill_node "chordy"
 
 pgrep -af 'erl|beam.smp' 2>/dev/null | grep -- "$CURRENT_DIR" >/dev/null 2>&1
 if [ $? -eq 0 ]; then
@@ -57,10 +57,10 @@ echo -e "${GREEN}✅ Compilation successful!${NC}"
 
 
 BEAM_DIR="$CURRENT_DIR/bin"
-CMD="cd '$CURRENT_DIR' && erl -pa '$BEAM_DIR' -setcookie 1234 -sname groupy "
+CMD="cd '$CURRENT_DIR' && erl -pa '$BEAM_DIR' -setcookie 1234 -sname chordy "
 
 echo ""
-echo -e "${PURPLE}${BOLD}=== 🚀 Starting Erlang node GROUPY ===${NC}"
+echo -e "${PURPLE}${BOLD}=== 🚀 Starting Erlang node chordy ===${NC}"
 echo ""
 
 
@@ -68,4 +68,4 @@ echo ""
 eval "$CMD"
 
 echo -e "${CYAN}${BOLD}Manual command (if needed):${NC}"
-echo -e "${WHITE}GROUPY: ${YELLOW}$CMD${NC}"
+echo -e "${WHITE}chordy: ${YELLOW}$CMD${NC}"
