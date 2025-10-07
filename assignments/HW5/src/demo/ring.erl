@@ -1,9 +1,9 @@
 -module(ring).
 
 -export([apple/0, banana/0, cherry/0, pear/0]).
--export([info/0, probe/1]).
+-export([info/0, probe/1, kill/1]).
 
--define(NODE_MODULE, node2).
+-define(NODE_MODULE, node3).
 
 apple() ->
     Id1 = key:generate(),
@@ -76,5 +76,11 @@ probe(NodeName) ->
     NodeAtom = netw:node_addr(netw:node_base(NodeName)),
     rpc:call(NodeAtom, erlang, send, [NodeName, probe]),
     ok.
+
+kill(Node) ->
+    NodeAddr =
+        netw:node_addr(
+            netw:node_base(Node)),
+    {Node, NodeAddr} ! die.
 
 
