@@ -39,19 +39,11 @@ kill_node() {
     fi
 }
 
-# Try to kill common node names used by this project
+# Only kill ring nodes (apple, banana, cherry, pear)
 kill_node "apple"
 kill_node "banana"
 kill_node "cherry"
 kill_node "pear"
-
-# Also attempt to kill any leftover erl/beam.smp processes that were started from this working dir
-pgrep -af 'erl|beam.smp' 2>/dev/null | grep -- "$CURRENT_DIR" >/dev/null 2>&1
-if [ $? -eq 0 ]; then
-    echo -e "${YELLOW}Killing Erlang processes started from ${CURRENT_DIR}${NC}"
-    pgrep -af 'erl|beam.smp' 2>/dev/null | grep -- "$CURRENT_DIR" | awk '{print $1}' | xargs -r kill 2>/dev/null || true
-    sleep 1
-fi
 
 # Compile project
 echo -e "${YELLOW}⚙️  Compiling project...${NC}"
