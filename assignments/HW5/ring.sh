@@ -57,13 +57,15 @@ fi
 echo -e "${GREEN}✅ Compilation successful!${NC}"
 
 BEAM_DIR="$CURRENT_DIR/bin"
-EVAL_ITALY=""
-EVAL_SPAIN=""
+EVAL_APPLE="ring:apple()"
+EVAL_BANANA="ring:banana()"
+EVAL_CHERRY="ring:cherry()"
+EVAL_PEAR="ring:pear()"
 
-APPLE_CMD="cd '$CURRENT_DIR' && erl -pa '$BEAM_DIR' -setcookie 1234 -sname apple"
-BANANA_CMD="cd '$CURRENT_DIR' && erl -pa '$BEAM_DIR' -setcookie 1234 -sname banana"
-CHERRY_CMD="cd '$CURRENT_DIR' && erl -pa '$BEAM_DIR' -setcookie 1234 -sname cherry"
-PEAR_CMD="cd '$CURRENT_DIR' && erl -pa '$BEAM_DIR' -setcookie 1234 -sname pear"
+APPLE_CMD="cd '$CURRENT_DIR' && erl -pa '$BEAM_DIR' -setcookie 1234 -sname apple -eval '$EVAL_APPLE'"
+BANANA_CMD="cd '$CURRENT_DIR' && erl -pa '$BEAM_DIR' -setcookie 1234 -sname banana -eval '$EVAL_BANANA'"
+CHERRY_CMD="cd '$CURRENT_DIR' && erl -pa '$BEAM_DIR' -setcookie 1234 -sname cherry -eval '$EVAL_CHERRY'"
+PEAR_CMD="cd '$CURRENT_DIR' && erl -pa '$BEAM_DIR' -setcookie 1234 -sname pear -eval '$EVAL_PEAR'"
 
 echo ""
 echo -e "${PURPLE}${BOLD}=== 🚀 Starting Erlang nodes automatically ===${NC}"

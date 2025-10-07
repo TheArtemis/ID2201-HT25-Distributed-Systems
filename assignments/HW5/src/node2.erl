@@ -177,6 +177,7 @@ remove_probe(T, Nodes) ->
 % Forward a probe that is not ours to our successor
 forward_probe(Ref, T, Nodes, Successor) ->
     {_, Spid} = Successor,
+    ?LOG andalso io:format("Node ~w: Got a probe from ~w~n", [self(), Ref]),
     Spid ! {probe, Ref, [self() | Nodes], T}.
 
 %% Add and Lookup functions
