@@ -3,13 +3,6 @@
 -export([apple/0, banana/0, cherry/0, pear/0]).
 -export([info/0, probe/1]).
 
-hostname() ->
-    {ok, Hostname} = inet:gethostname(),
-    list_to_atom(Hostname).
-
-node_addr(Name) ->
-    list_to_atom(atom_to_list(Name) ++ "@" ++ atom_to_list(hostname())).
-
 apple() ->
     Id1 = key:generate(),
     Id2 = key:generate(),
@@ -25,7 +18,7 @@ apple() ->
 banana() ->
     Id1 = key:generate(),
     Id2 = key:generate(),
-    ApplePid = rpc:call(node_addr(apple), erlang, whereis, [apple1]),
+    ApplePid = rpc:call(netw:node_addr(apple), erlang, whereis, [apple1]),
     
     Pid1 = node2:start(Id1, ApplePid),
     register(banana1, Pid1),
@@ -39,7 +32,7 @@ banana() ->
 cherry() ->
     Id1 = key:generate(),
     Id2 = key:generate(),
-    ApplePid = rpc:call(node_addr(apple), erlang, whereis, [apple1]),
+    ApplePid = rpc:call(netw:node_addr(apple), erlang, whereis, [apple1]),
     
     Pid1 = node2:start(Id1, ApplePid),
     register(cherry1, Pid1),
@@ -53,7 +46,7 @@ cherry() ->
 pear() ->
     Id1 = key:generate(),
     Id2 = key:generate(),
-    ApplePid = rpc:call(node_addr(apple), erlang, whereis, [apple1]),
+    ApplePid = rpc:call(netw:node_addr(apple), erlang, whereis, [apple1]),
     
     Pid1 = node2:start(Id1, ApplePid),
     register(pear1, Pid1),
@@ -66,24 +59,20 @@ pear() ->
 
 info() ->
     io:format("~nRing Information:~n"),
-    rpc:call(node_addr(apple), erlang, send, [apple1, info]),
-    rpc:call(node_addr(apple), erlang, send, [apple2, info]),
-    rpc:call(node_addr(banana), erlang, send, [banana1, info]),
-    rpc:call(node_addr(banana), erlang, send, [banana2, info]),
-    rpc:call(node_addr(cherry), erlang, send, [cherry1, info]),
-    rpc:call(node_addr(cherry), erlang, send, [cherry2, info]),
-    rpc:call(node_addr(pear), erlang, send, [pear1, info]),
-    rpc:call(node_addr(pear), erlang, send, [pear2, info]),
+    rpc:call(netw:node_addr(apple), erlang, send, [apple1, info]),
+    rpc:call(netw:node_addr(apple), erlang, send, [apple2, info]),
+    rpc:call(netw:node_addr(banana), erlang, send, [banana1, info]),
+    rpc:call(netw:node_addr(banana), erlang, send, [banana2, info]),
+    rpc:call(netw:node_addr(cherry), erlang, send, [cherry1, info]),
+    rpc:call(netw:node_addr(cherry), erlang, send, [cherry2, info]),
+    rpc:call(netw:node_addr(pear), erlang, send, [pear1, info]),
+    rpc:call(netw:node_addr(pear), erlang, send, [pear2, info]),
     ok.
 
 probe(NodeName) ->
     io:format("~nSending probe from ~p...~n", [NodeName]),
-    NodeAtom = node_addr(node_base(NodeName)),
+    NodeAtom = netw:node_addr(netw:node_base(NodeName)),
     rpc:call(NodeAtom, erlang, send, [NodeName, probe]),
     ok.
 
-% Extract the base node name (apple from apple1)
-node_base(NodeName) when is_atom(NodeName) ->
-    list_to_atom(
-        lists:takewhile(fun(C) -> C >= $a andalso C =< $z end, atom_to_list(NodeName))
-    ).
+
