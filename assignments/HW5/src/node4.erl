@@ -51,8 +51,10 @@ node(Id, Predecessor, Successor, Next, Store, Replica) ->
             node(Id, Predecessor, Successor, Next, Store, Replica);
         % New node informs us of its existence
         {notify, New} ->
-            {Pred, Keep} = notify(New, Id, Predecessor, Store),
-            node(Id, Pred, Successor, Next, Keep, Replica);
+            {Pred, Keep} = notify(New, Id, Predecessor, Store, Successor),
+            % Clear replica since we have a new predecessor who will send us new replicas
+            NewReplica = storage:create(),
+            node(Id, Pred, Successor, Next, Keep, NewReplica);
         % Predecessor needs to know our predecessor
         {request, Peer} ->
             request(Peer, Predecessor, Next),
@@ -60,6 +62,14 @@ node(Id, Predecessor, Successor, Next, Store, Replica) ->
         % Syccessor informs us about it's predecessor
         {status, Pred, Nx} ->
             {Succ, Nxt} = stabilize(Pred, Nx, Id, Successor),
+            % If successor changed, re-replicate our store
+            case Succ of
+                Successor ->
+                    ok;  % Same successor, no change
+                {_, _, NewSpid} ->
+                    % New successor - replicate our entire store
+                    storage:foreach(fun(Key, Value) -> NewSpid ! {replicate, Key, Value} end, Store)
+            end,
             node(Id, Predecessor, Succ, Nxt, Store, Replica);
         stabilize ->
             stabilize(Successor),
@@ -146,11 +156,14 @@ stabilize(Pred, Nx, Id, Successor) ->
             end
     end.
 
-notify({Nkey, Npid}, Id, Predecessor, Store) ->
+notify({Nkey, Npid}, Id, Predecessor, Store, Successor) ->
+    {_, _, Spid} = Successor,
     case Predecessor of
         nil ->
             % We have no predecessor, so accept the new node
             Keep = handover(Id, Store, Nkey, Npid),
+            % Replicate our remaining keys to our successor
+            storage:foreach(fun(Key, Value) -> Spid ! {replicate, Key, Value} end, Keep),
             {{Nkey, monitor(Npid), Npid}, Keep};
         {Pkey, Pref, _} ->
             case key:between(Nkey, Pkey, Id) of
@@ -160,6 +173,8 @@ notify({Nkey, Npid}, Id, Predecessor, Store) ->
                     % De-monitor old predecessor, monitor new one
                     drop(Pref),
                     Keep = handover(Id, Store, Nkey, Npid),
+                    % Replicate our remaining keys to our successor
+                    storage:foreach(fun(Key, Value) -> Spid ! {replicate, Key, Value} end, Keep),
                     {{Nkey, monitor(Npid), Npid}, Keep};
                 false ->
                     % The new node is not between our predecessor and us
