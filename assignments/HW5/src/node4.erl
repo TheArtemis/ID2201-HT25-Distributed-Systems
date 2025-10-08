@@ -67,8 +67,8 @@ node(Id, Predecessor, Successor, Next, Store, Replica) ->
                 Successor ->
                     ok;  % Same successor, no change
                 {_, _, NewSpid} ->
-                    % New successor - replicate our entire store
-                    storage:foreach(fun(Key, Value) -> NewSpid ! {replicate, Key, Value} end, Store)
+                    % New successor - send our entire store as replica
+                    NewSpid ! {set_replica, Store}
             end,
             node(Id, Predecessor, Succ, Nxt, Store, Replica);
         stabilize ->
@@ -83,11 +83,11 @@ node(Id, Predecessor, Successor, Next, Store, Replica) ->
         probe ->
             create_probe(Id, Successor),
             node(Id, Predecessor, Successor, Next, Store, Replica);
-        {probe, Id, Nodes, T, KeyCounts} ->
-            remove_probe(T, Nodes, KeyCounts, Store),
+        {probe, Id, Nodes, T, KeyCounts, ReplicaCounts} ->
+            remove_probe(T, Nodes, KeyCounts, ReplicaCounts, Store, Replica),
             node(Id, Predecessor, Successor, Next, Store, Replica);
-        {probe, Ref, Nodes, T, KeyCounts} ->
-            forward_probe(Ref, T, Nodes, KeyCounts, Successor, Store),
+        {probe, Ref, Nodes, T, KeyCounts, ReplicaCounts} ->
+            forward_probe(Ref, T, Nodes, KeyCounts, ReplicaCounts, Successor, Store, Replica),
             node(Id, Predecessor, Successor, Next, Store, Replica);
         % Qref is used to tag the return message to the Client.
         % Client will be able to identify the reply message
@@ -109,8 +109,19 @@ node(Id, Predecessor, Successor, Next, Store, Replica) ->
         {replicate, Key, Value} ->
             ?LOG
             andalso io:format("Node ~w: Received replica: Key=~w, Value=~w~n", [Id, Key, Value]),
-            AddedReplica = storage:add(Key, Value, Replica),
+            AddedReplica = storage:add_idm(Key, Value, Replica),
             node(Id, Predecessor, Successor, Next, Store, AddedReplica);
+        {set_replica, NewReplica} ->
+            ?LOG
+            andalso io:format("Node ~w: Setting replica (size=~w)~n",
+                              [Id, storage:size(NewReplica)]),
+            node(Id, Predecessor, Successor, Next, Store, NewReplica);
+        {request_replica, Pid} ->
+            ?LOG
+            andalso io:format("Node ~w: Sending replica (size=~w) to ~w~n",
+                              [Id, storage:size(Store), Pid]),
+            Pid ! {set_replica, Store},
+            node(Id, Predecessor, Successor, Next, Store, Replica);
         _ ->
             io:format("Node ~w: Unexpected message~n", [Id]),
             node(Id, Predecessor, Successor, Next, Store, Replica)
@@ -162,8 +173,10 @@ notify({Nkey, Npid}, Id, Predecessor, Store, Successor) ->
         nil ->
             % We have no predecessor, so accept the new node
             Keep = handover(Id, Store, Nkey, Npid),
-            % Replicate our remaining keys to our successor
-            storage:foreach(fun(Key, Value) -> Spid ! {replicate, Key, Value} end, Keep),
+            % Send our remaining keys as replica to our successor
+            Spid ! {set_replica, Keep},
+            % Request replica from our new predecessor
+            Npid ! {request_replica, self()},
             {{Nkey, monitor(Npid), Npid}, Keep};
         {Pkey, Pref, _} ->
             case key:between(Nkey, Pkey, Id) of
@@ -173,8 +186,10 @@ notify({Nkey, Npid}, Id, Predecessor, Store, Successor) ->
                     % De-monitor old predecessor, monitor new one
                     drop(Pref),
                     Keep = handover(Id, Store, Nkey, Npid),
-                    % Replicate our remaining keys to our successor
-                    storage:foreach(fun(Key, Value) -> Spid ! {replicate, Key, Value} end, Keep),
+                    % Send our remaining keys as replica to our successor
+                    Spid ! {set_replica, Keep},
+                    % Request replica from our new predecessor
+                    Npid ! {request_replica, self()},
                     {{Nkey, monitor(Npid), Npid}, Keep};
                 false ->
                     % The new node is not between our predecessor and us
@@ -197,29 +212,40 @@ request(Peer, Predecessor, Next) ->
 create_probe(Id, Successor) ->
     {_Skey, _Sref, SPid} = Successor,
     T = erlang:system_time(microsecond),
-    SPid ! {probe, Id, [], T, []}.  % Start with empty node and key count lists
+    SPid
+    ! {probe, Id, [], T, [], []}.  % Start with empty node, key count, and replica count lists
 
 % Remove (complete) a probe that came back to us
-remove_probe(T, Nodes, KeyCounts, Store) ->
+remove_probe(T, Nodes, KeyCounts, ReplicaCounts, Store, Replica) ->
     Time = erlang:system_time(microsecond) - T,
     % Nodes list already contains all nodes except us, so just add ourselves
     AllNodes = [self() | Nodes],
     AllKeyCounts = [storage:size(Store) | KeyCounts],
+    AllReplicaCounts = [storage:size(Replica) | ReplicaCounts],
     TotalKeys = lists:sum(AllKeyCounts),
+    TotalReplicas = lists:sum(AllReplicaCounts),
     io:format("Probe completed in ~w microseconds. Nodes in ring: ~w~n",
               [Time, lists:reverse(AllNodes)]),
     io:format("Number of nodes: ~w~n", [length(AllNodes)]),
     io:format("Total number of keys in ring: ~w~n", [TotalKeys]),
-    lists:foreach(fun({Node, KeyCount}) -> io:format("Node: ~p, Keys: ~p~n", [Node, KeyCount])
+    io:format("Total number of replica keys in ring: ~w~n", [TotalReplicas]),
+    lists:foreach(fun({Node, KeyCount, ReplicaCount}) ->
+                     io:format("Node: ~p, Keys: ~p, Replica: ~p~n", [Node, KeyCount, ReplicaCount])
                   end,
                   lists:reverse(
-                      lists:zip(AllNodes, AllKeyCounts))).
+                      lists:zip3(AllNodes, AllKeyCounts, AllReplicaCounts))).
 
 % Forward a probe that is not ours to our successor
-forward_probe(Ref, T, Nodes, KeyCounts, Successor, Store) ->
+forward_probe(Ref, T, Nodes, KeyCounts, ReplicaCounts, Successor, Store, Replica) ->
     {_, _, Spid} = Successor,
     ?LOG andalso io:format("Node ~w: Got a probe from ~w~n", [self(), Ref]),
-    Spid ! {probe, Ref, [self() | Nodes], T, [storage:size(Store) | KeyCounts]}.
+    Spid
+    ! {probe,
+       Ref,
+       [self() | Nodes],
+       T,
+       [storage:size(Store) | KeyCounts],
+       [storage:size(Replica) | ReplicaCounts]}.
 
 %% Add and Lookup functions
 
@@ -290,7 +316,13 @@ monitor(Pid) ->
 drop(nil) ->
     ok;
 drop(Ref) ->
-    erlang:demonitor(Ref, [flush]).
+    try
+        erlang:demonitor(Ref, [flush])
+    catch
+        error:badarg ->
+            % Monitor reference already invalid/cleaned up - that's ok
+            ok
+    end.
 
 down(Ref, {_, Ref, _}, Successor, Next, Store, Replica) ->
     % Predecessor died - we now own the replica data
@@ -305,7 +337,7 @@ down(Ref, {_, Ref, _}, Successor, Next, Store, Replica) ->
     % Re-replicate the merged store to our successor to maintain replication invariant
     {_, _, Spid} = Successor,
     ?LOG andalso io:format("Node: Re-replicating merged store to successor~n"),
-    storage:foreach(fun(Key, Value) -> Spid ! {replicate, Key, Value} end, MergedStore),
+    Spid ! {set_replica, MergedStore},
 
     {nil, Successor, Next, MergedStore, NewReplica};
 down(Ref, nil, {_, Ref, _}, nil, Store, Replica) ->
@@ -324,7 +356,7 @@ down(Ref, nil, {_, Ref, _}, {Nkey, Nref, Npid}, Store, Replica) ->
             {nil, {MyId, Sref, self()}, nil, Store, Replica};
         _ ->
             % Next is alive - adopt it as new successor
-            storage:foreach(fun(Key, Value) -> Npid ! {replicate, Key, Value} end, Store),
+            Npid ! {set_replica, Store},
             self() ! stabilize,
             {nil, {Nkey, Nref, Npid}, nil, Store, Replica}
     end;
@@ -345,7 +377,7 @@ down(Ref, Predecessor, {_, Ref, _}, {Nkey, Nref, Npid}, Store, Replica) ->
         _ ->
             % Next is alive - adopt it as new successor
             % Send all our store entries to new successor for replication
-            storage:foreach(fun(Key, Value) -> Npid ! {replicate, Key, Value} end, Store),
+            Npid ! {set_replica, Store},
             self() ! stabilize,
             {Predecessor, {Nkey, Nref, Npid}, nil, Store, Replica}
     end.

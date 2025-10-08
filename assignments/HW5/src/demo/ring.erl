@@ -1,6 +1,6 @@
 -module(ring).
 
--export([apple/1, banana/1, cherry/1, pear/1]).
+-export([apple/1, banana/1, cherry/1, pear/1, grape/1]).
 -export([info/0, probe/1, kill/1]).
 
 
@@ -21,6 +21,7 @@ apple(NodeModule) ->
 
 banana(NodeModule) ->
     io:format("Starting banana/1 with NodeModule=~p~n", [NodeModule]),
+    timer:sleep(500),
     Id1 = key:generate(),
     Id2 = key:generate(),
     ApplePid = rpc:call(netw:node_addr(apple), erlang, whereis, [apple1]),
@@ -36,6 +37,7 @@ banana(NodeModule) ->
 
 cherry(NodeModule) ->
     io:format("Starting cherry/1 with NodeModule=~p~n", [NodeModule]),
+    timer:sleep(500),
     Id1 = key:generate(),
     Id2 = key:generate(),
     ApplePid = rpc:call(netw:node_addr(apple), erlang, whereis, [apple1]),
@@ -51,6 +53,7 @@ cherry(NodeModule) ->
 
 pear(NodeModule) ->
     io:format("Starting pear/1 with NodeModule=~p~n", [NodeModule]),
+    timer:sleep(500),
     Id1 = key:generate(),
     Id2 = key:generate(),
     ApplePid = rpc:call(netw:node_addr(apple), erlang, whereis, [apple1]),
@@ -64,6 +67,22 @@ pear(NodeModule) ->
     io:format("🍐 Pear2 node started with ID ~w~n", [Id2]),
     [Id1, Id2].
 
+grape(NodeModule) ->
+    io:format("Starting grape/1 with NodeModule=~p~n", [NodeModule]),
+    timer:sleep(500),
+    Id1 = key:generate(),
+    Id2 = key:generate(),
+    CherryPid = rpc:call(netw:node_addr(cherry), erlang, whereis, [cherry1]),
+    
+    Pid1 = NodeModule:start(Id1, CherryPid),
+    register(grape1, Pid1),
+    io:format("🍇 Grape1 node started with ID ~w~n", [Id1]),
+    
+    Pid2 = NodeModule:start(Id2, Pid1),
+    register(grape2, Pid2),
+    io:format("🍇 Grape2 node started with ID ~w~n", [Id2]),
+    [Id1, Id2].
+
 info() ->
     io:format("~nRing Information:~n"),
     rpc:call(netw:node_addr(apple), erlang, send, [apple1, info]),
@@ -74,6 +93,8 @@ info() ->
     rpc:call(netw:node_addr(cherry), erlang, send, [cherry2, info]),
     rpc:call(netw:node_addr(pear), erlang, send, [pear1, info]),
     rpc:call(netw:node_addr(pear), erlang, send, [pear2, info]),
+    rpc:call(netw:node_addr(grape), erlang, send, [grape1, info]),
+    rpc:call(netw:node_addr(grape), erlang, send, [grape2, info]),
     ok.
 
 probe(NodeName) ->

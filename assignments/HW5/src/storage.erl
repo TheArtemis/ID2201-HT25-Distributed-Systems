@@ -1,6 +1,6 @@
 -module(storage).
 
--export([create/0, add/3, lookup/2, split/3, merge/2, size/1, foreach/2]).
+-export([create/0, add/3, add_idm/3, lookup/2, split/3, merge/2, size/1, foreach/2]).
 
 %% Store is a list of tuple {Key, Value}
 
@@ -9,6 +9,10 @@ create() ->
 
 add(Key, Value, Store) ->
     [{Key, Value} | Store].
+
+add_idm(Key, Value, Store) ->
+    % Idempotent add: Remove any existing entry with this key, then add the new one
+    [{Key, Value} | lists:keydelete(Key, 1, Store)].
 
 lookup(Key, Store) ->
     lists:keyfind(Key, 1, Store).

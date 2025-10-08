@@ -124,11 +124,11 @@ stabilize(Pred, Nx, Id, Successor) ->
                 true ->
                     % Xkey is between us and our successor
                     % Adopt X as our new successor
-                    % Our old successor becomes our next node
+                    % Our old successor becomes our next node (without monitoring)
                     % De-monitor old successor, monitor new one
                     drop(Sref),
                     Xpid ! {notify, {Id, self()}},
-                    {{Xkey, monitor(Xpid), Xpid}, Successor};
+                    {{Xkey, monitor(Xpid), Xpid}, {Skey, Spid}};  % Next is just {Key, Pid}
                 false ->
                     % We should be between Xkey and Skey
                     % Notify our successor of our existence
@@ -185,7 +185,11 @@ remove_probe(T, Nodes, KeyCounts, Store) ->
     io:format("Probe completed in ~w microseconds. Nodes in ring: ~w~n",
               [Time, lists:reverse(AllNodes)]),
     io:format("Number of nodes: ~w~n", [length(AllNodes)]),
-    io:format("Total number of keys in ring: ~w~n", [TotalKeys]).
+    io:format("Total number of keys in ring: ~w~n", [TotalKeys]),
+    lists:foreach(fun({Node, KeyCount}) -> io:format("Node: ~p, Keys: ~p~n", [Node, KeyCount])
+                  end,
+                  lists:reverse(
+                      lists:zip(AllNodes, AllKeyCounts))).
 
 % Forward a probe that is not ours to our successor
 forward_probe(Ref, T, Nodes, KeyCounts, Successor, Store) ->
@@ -234,13 +238,38 @@ monitor(Pid) ->
 drop(nil) ->
     ok;
 drop(Ref) ->
-    erlang:demonitor(Ref, [flush]).
+    try
+        erlang:demonitor(Ref, [flush])
+    catch
+        error:badarg ->
+            % Monitor reference already invalid/cleaned up - that's ok
+            ok
+    end.
 
 % If our predecessor died we set it to nil and eventually we will become someone else's successor
 down(Ref, {_, Ref, _}, Successor, Next) ->
     {nil, Successor, Next};
-% If our successor dies and we have a Next node, adopt it as our new successor
-down(Ref, Predecessor, {_, Ref, _}, {Nkey, Npid}) ->
-    Nref = monitor(Npid),
+% If our successor dies and we have no predecessor or next - we're alone
+down(Ref, nil, {_, Ref, _}, nil) ->
+    Sref = monitor(self()),
+    MyId = self(),
+    {nil, {MyId, Sref, self()}, nil};
+% If our successor dies, we have no predecessor but we have Next (2-tuple format)
+down(Ref, nil, {_, Ref, _}, {Nkey, Npid}) ->
+    % Next is alive - adopt it as new successor
     self() ! stabilize,
-    {Predecessor, {Nkey, Nref, Npid}, nil}.
+    {nil, {Nkey, monitor(Npid), Npid}, nil};
+% If our successor dies but we have no Next - we're now alone in the ring
+down(Ref, Predecessor, {_, Ref, _}, nil) ->
+    {Pkey, _, _} = Predecessor,
+    Sref = monitor(self()),
+    {Predecessor, {Pkey, Sref, self()}, nil};
+% If our successor dies and we have both a Predecessor and Next (2-tuple format)
+down(Ref, Predecessor, {_, Ref, _}, {Nkey, Npid}) ->
+    % Next is alive - adopt it as new successor
+    self() ! stabilize,
+    {Predecessor, {Nkey, monitor(Npid), Npid}, nil};
+% If Next died (but is not our Successor or Predecessor), just clear it
+down(_Ref, Predecessor, Successor, _Next) ->
+    ?LOG andalso io:format("Node: Unexpected down pattern, clearing Next~n"),
+    {Predecessor, Successor, nil}.

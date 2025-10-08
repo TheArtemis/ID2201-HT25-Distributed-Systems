@@ -58,10 +58,15 @@ echo -e "${GREEN}✅ Compilation successful!${NC}"
 
 BEAM_DIR="$CURRENT_DIR/bin"
 
-RED_CMD="cd '$CURRENT_DIR' && erl -pa '$BEAM_DIR' -setcookie 1234 -sname red"
-BLUE_CMD="cd '$CURRENT_DIR' && erl -pa '$BEAM_DIR' -setcookie 1234 -sname blue"
-GREEN_CMD="cd '$CURRENT_DIR' && erl -pa '$BEAM_DIR' -setcookie 1234 -sname green"
-YELLOW_CMD="cd '$CURRENT_DIR' && erl -pa '$BEAM_DIR' -setcookie 1234 -sname yellow"
+EVAL_RED="client:init_red()"
+EVAL_BLUE="client:init_blue()"
+EVAL_GREEN="client:init_green()"
+EVAL_YELLOW="client:init_yellow()"
+
+RED_CMD="cd '$CURRENT_DIR' && erl -pa '$BEAM_DIR' -setcookie 1234 -sname red -eval '$EVAL_RED'"
+BLUE_CMD="cd '$CURRENT_DIR' && erl -pa '$BEAM_DIR' -setcookie 1234 -sname blue -eval '$EVAL_BLUE'"
+GREEN_CMD="cd '$CURRENT_DIR' && erl -pa '$BEAM_DIR' -setcookie 1234 -sname green -eval '$EVAL_GREEN'"
+YELLOW_CMD="cd '$CURRENT_DIR' && erl -pa '$BEAM_DIR' -setcookie 1234 -sname yellow -eval '$EVAL_YELLOW'"
 
 echo ""
 echo -e "${PURPLE}${BOLD}=== 🚀 Starting Erlang nodes automatically ===${NC}"

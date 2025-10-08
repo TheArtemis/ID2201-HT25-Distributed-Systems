@@ -3,7 +3,7 @@
 -export([start/1, start/2, start/3, add/3, add/2, lookup/2, keys/1, check/2, check/4]).
 
 -define(Timeout, 1000).
--define(LOG, true).
+-define(LOG, false).
 
 %% Starting up a set of nodes is made easier using this function.
 
