@@ -17,7 +17,6 @@ init(Id, Peer) ->
     Predecessor = nil,
     {ok, Successor} = connect(Id, Peer),
     schedule_stabilize(),
-    % Create the store once and thread it through the node loop
     Store = storage:create(),
     Next = nil,
     node(Id, Predecessor, Successor, Next, Store).
