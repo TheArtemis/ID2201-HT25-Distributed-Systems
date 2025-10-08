@@ -1,6 +1,6 @@
 -module(storage).
 
--export([create/0, add/3, lookup/2, split/3, merge/2, size/1]).
+-export([create/0, add/3, lookup/2, split/3, merge/2, size/1, foreach/2]).
 
 %% Store is a list of tuple {Key, Value}
 
@@ -28,3 +28,6 @@ merge(Entries, Store) ->
 
 size(Store) ->
     length(Store).
+
+foreach(Fun, Store) ->
+    lists:foreach(fun({Key, Value}) -> Fun(Key, Value) end, Store).

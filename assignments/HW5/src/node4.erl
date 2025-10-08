@@ -5,6 +5,8 @@
 -define(STABILIZE, 300).
 -define(TIMEOUT, 10000).
 -define(LOG, true).
+-define(LOG_LOOKUP, true).
+-define(LOG_ADD, true).
 
 start(Id) ->
     start(Id, nil).
@@ -91,9 +93,12 @@ node(Id, Predecessor, Successor, Next, Store, Replica) ->
             node(Id, Predecessor, Successor, Next, Merged, Replica);
         {'DOWN', Ref, process, _, _} ->
             ?LOG andalso io:format("Node ~w: Detected node down (Ref=~p)~n", [Id, Ref]),
-            {Pred, Succ, Nxt} = down(Ref, Predecessor, Successor, Next),
-            node(Id, Pred, Succ, Nxt, Store, Replica);
+            {Pred, Succ, Nxt, NewStore, NewReplica} =
+                down(Ref, Predecessor, Successor, Next, Store, Replica),
+            node(Id, Pred, Succ, Nxt, NewStore, NewReplica);
         {replicate, Key, Value} ->
+            ?LOG
+            andalso io:format("Node ~w: Received replica: Key=~w, Value=~w~n", [Id, Key, Value]),
             AddedReplica = storage:add(Key, Value, Replica),
             node(Id, Predecessor, Successor, Next, Store, AddedReplica);
         _ ->
@@ -203,39 +208,64 @@ forward_probe(Ref, T, Nodes, KeyCounts, Successor, Store) ->
 
 %% Add and Lookup functions
 
-add(Key, Value, Qref, Client, Id, {Pkey, _, _}, {_, _, Spid}, Store) ->
-    case key:between(Key, Pkey, Id) of
-        true ->
+add(Key, Value, Qref, Client, Id, Predecessor, {_, _, Spid}, Store) ->
+    case Predecessor of
+        nil ->
+            % We are the only node or have no predecessor yet
             Client ! {Qref, ok},
-            ?LOG andalso io:format("Node ~w: Adding key ~w with value ~w~n", [Id, Key, Value]),
-            storage:add(Key, Value, Store),
-
-            % Now we send it to out successor to replicate
-            Spid ! {replicate, Key, Value};
-        false ->
-            ?LOG
-            andalso io:format("Node ~w: Forwarding add request for key ~w to client ~w~n",
-                              [Id, Key, Client]),
-            Spid ! {add, Key, Value, Qref, Client},
-            Store
+            ?LOG_ADD andalso io:format("Node ~w: Adding key ~w with value ~w~n", [Id, Key, Value]),
+            Added = storage:add(Key, Value, Store),
+            % Replicate to successor
+            Spid ! {replicate, Key, Value},
+            Added;
+        {Pkey, _, _} ->
+            case key:between(Key, Pkey, Id) of
+                true ->
+                    Client ! {Qref, ok},
+                    ?LOG_ADD
+                    andalso io:format("Node ~w: Adding key ~w with value ~w~n", [Id, Key, Value]),
+                    Added = storage:add(Key, Value, Store),
+                    % Replicate to successor
+                    Spid ! {replicate, Key, Value},
+                    Added;
+                false ->
+                    ?LOG_ADD
+                    andalso io:format("Node ~w: Forwarding add request for key ~w to client ~w~n",
+                                      [Id, Key, Client]),
+                    Spid ! {add, Key, Value, Qref, Client},
+                    Store
+            end
     end.
 
-lookup(Key, Qref, Client, Id, {Pkey, _, _}, Successor, Store) ->
-    case key:between(Key, Pkey, Id) of
-        true ->
+lookup(Key, Qref, Client, Id, Predecessor, Successor, Store) ->
+    ?LOG_LOOKUP
+    andalso io:format("Node ~w: Lookup called for key ~w, Store size=~w, Pred=~p~n",
+                      [Id, Key, storage:size(Store), Predecessor]),
+    case Predecessor of
+        nil ->
+            % We are the only node or have no predecessor yet
             Result = storage:lookup(Key, Store),
-            ?LOG andalso io:format("Node ~w: looking up key ~w -> ~p~n", [Id, Key, Result]),
+            ?LOG_LOOKUP andalso io:format("Node ~w: looking up key ~w -> ~p~n", [Id, Key, Result]),
             Client ! {Qref, Result};
-        false ->
-            {_, _, Spid} = Successor,
-            ?LOG
-            andalso io:format("Node ~w: Forwarding lookup request for key ~w to client ~w~n",
-                              [Id, Key, Client]),
-            Spid ! {lookup, Key, Qref, Client}
+        {Pkey, _, _} ->
+            case key:between(Key, Pkey, Id) of
+                true ->
+                    Result = storage:lookup(Key, Store),
+                    ?LOG_LOOKUP
+                    andalso io:format("Node ~w: looking up key ~w -> ~p~n", [Id, Key, Result]),
+                    Client ! {Qref, Result};
+                false ->
+                    {_, _, Spid} = Successor,
+                    ?LOG_LOOKUP
+                    andalso io:format("Node ~w: Forwarding lookup request for key ~w to client ~w~n",
+                                      [Id, Key, Client]),
+                    Spid ! {lookup, Key, Qref, Client}
+            end
     end.
 
 handover(Id, Store, Nkey, Npid) ->
-    {Keep, Rest} = storage:split(Id, Nkey, Store),
+    % Split the store: Keep keys in range (Nkey, Id], send rest to new predecessor
+    {Keep, Rest} = storage:split(Nkey, Id, Store),
     Npid ! {handover, Rest},
     Keep.
 
@@ -247,11 +277,54 @@ drop(nil) ->
 drop(Ref) ->
     erlang:demonitor(Ref, [flush]).
 
-% If our predecessor died we set it to nil and eventually we will become someone else's successor
-down(Ref, {_, Ref, _}, Successor, Next) ->
-    {nil, Successor, Next};
-% If our successor dies and we have a Next node, adopt it as our new successor
-down(Ref, Predecessor, {_, Ref, _}, {Nkey, Npid}) ->
-    Nref = monitor(Npid),
-    self() ! stabilize,
-    {Predecessor, {Nkey, Nref, Npid}, nil}.
+down(Ref, {_, Ref, _}, Successor, Next, Store, Replica) ->
+    % Predecessor died - we now own the replica data
+    ?LOG
+    andalso io:format("Node: Predecessor died, merging replica (size=~w) into store "
+                      "(size=~w)~n",
+                      [storage:size(Replica), storage:size(Store)]),
+    MergedStore = storage:merge(Replica, Store),
+    ?LOG andalso io:format("Node: After merge, store size=~w~n", [storage:size(MergedStore)]),
+    NewReplica = storage:create(),
+    {nil, Successor, Next, MergedStore, NewReplica};
+down(Ref, nil, {_, Ref, _}, nil, Store, Replica) ->
+    % Successor died, we have no predecessor or next - we're alone
+    % Point to ourselves
+    Sref = monitor(self()),
+    MyId = self(),
+    {nil, {MyId, Sref, self()}, nil, Store, Replica};
+down(Ref, nil, {_, Ref, _}, {Nkey, Nref, Npid}, Store, Replica) ->
+    % Successor died, we have no predecessor but we have Next
+    case Nref of
+        Ref ->
+            % Next is also the dead node - we're alone now
+            Sref = monitor(self()),
+            MyId = self(),
+            {nil, {MyId, Sref, self()}, nil, Store, Replica};
+        _ ->
+            % Next is alive - adopt it as new successor
+            storage:foreach(fun(Key, Value) -> Npid ! {replicate, Key, Value} end, Store),
+            self() ! stabilize,
+            {nil, {Nkey, Nref, Npid}, nil, Store, Replica}
+    end;
+down(Ref, Predecessor, {_, Ref, _}, nil, Store, Replica) ->
+    % Successor died but we have no Next - we're now alone in the ring
+    % Point to ourselves
+    {Pkey, _, _} = Predecessor,
+    Sref = monitor(self()),
+    {Predecessor, {Pkey, Sref, self()}, nil, Store, Replica};
+down(Ref, Predecessor, {_, Ref, _}, {Nkey, Nref, Npid}, Store, Replica) ->
+    % Check if Next is also down (same Ref) - this can happen in small rings
+    case Nref of
+        Ref ->
+            % Next is also the dead node - point to ourselves as successor
+            {Pkey, _, _} = Predecessor,
+            Sref = monitor(self()),
+            {Predecessor, {Pkey, Sref, self()}, nil, Store, Replica};
+        _ ->
+            % Next is alive - adopt it as new successor
+            % Send all our store entries to new successor for replication
+            storage:foreach(fun(Key, Value) -> Npid ! {replicate, Key, Value} end, Store),
+            self() ! stabilize,
+            {Predecessor, {Nkey, Nref, Npid}, nil, Store, Replica}
+    end.
