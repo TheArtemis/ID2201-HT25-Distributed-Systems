@@ -70,11 +70,11 @@ node(Id, Predecessor, Successor, Next, Store) ->
         probe ->
             create_probe(Id, Successor),
             node(Id, Predecessor, Successor, Next, Store);
-        {probe, Id, Nodes, T} ->
-            remove_probe(T, Nodes),
+        {probe, Id, Nodes, T, KeyCounts} ->
+            remove_probe(T, Nodes, KeyCounts, Store),
             node(Id, Predecessor, Successor, Next, Store);
-        {probe, Ref, Nodes, T} ->
-            forward_probe(Ref, T, Nodes, Successor),
+        {probe, Ref, Nodes, T, KeyCounts} ->
+            forward_probe(Ref, T, Nodes, KeyCounts, Successor, Store),
             node(Id, Predecessor, Successor, Next, Store);
         % Qref is used to tag the return message to the Client.
         % Client will be able to identify the reply message
@@ -173,22 +173,25 @@ request(Peer, Predecessor, Next) ->
 create_probe(Id, Successor) ->
     {_Skey, _Sref, SPid} = Successor,
     T = erlang:system_time(microsecond),
-    SPid ! {probe, Id, [], T}.  % Start with empty list
+    SPid ! {probe, Id, [], T, []}.  % Start with empty node and key count lists
 
 % Remove (complete) a probe that came back to us
-remove_probe(T, Nodes) ->
+remove_probe(T, Nodes, KeyCounts, Store) ->
     Time = erlang:system_time(microsecond) - T,
     % Nodes list already contains all nodes except us, so just add ourselves
     AllNodes = [self() | Nodes],
+    AllKeyCounts = [storage:size(Store) | KeyCounts],
+    TotalKeys = lists:sum(AllKeyCounts),
     io:format("Probe completed in ~w microseconds. Nodes in ring: ~w~n",
               [Time, lists:reverse(AllNodes)]),
-    io:format("Number of nodes: ~w~n", [length(AllNodes)]).
+    io:format("Number of nodes: ~w~n", [length(AllNodes)]),
+    io:format("Total number of keys in ring: ~w~n", [TotalKeys]).
 
 % Forward a probe that is not ours to our successor
-forward_probe(Ref, T, Nodes, Successor) ->
+forward_probe(Ref, T, Nodes, KeyCounts, Successor, Store) ->
     {_, _, Spid} = Successor,
     ?LOG andalso io:format("Node ~w: Got a probe from ~w~n", [self(), Ref]),
-    Spid ! {probe, Ref, [self() | Nodes], T}.
+    Spid ! {probe, Ref, [self() | Nodes], T, [storage:size(Store) | KeyCounts]}.
 
 %% Add and Lookup functions
 

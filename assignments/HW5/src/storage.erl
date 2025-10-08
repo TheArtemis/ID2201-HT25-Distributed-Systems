@@ -1,6 +1,6 @@
 -module(storage).
 
--export([create/0, add/3, lookup/2, split/3, merge/2]).
+-export([create/0, add/3, lookup/2, split/3, merge/2, size/1]).
 
 %% Store is a list of tuple {Key, Value}
 
@@ -25,3 +25,6 @@ split(From, To, Store) ->
 
 merge(Entries, Store) ->
     lists:foldl(fun({Key, Value}, Acc) -> add(Key, Value, Acc) end, Store, Entries).
+
+size(Store) ->
+    length(Store).

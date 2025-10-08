@@ -19,7 +19,8 @@ init(Id, Peer) ->
     schedule_stabilize(),
     Store = storage:create(),
     Next = nil,
-    node(Id, Predecessor, Successor, Next, Store).
+    Replica = storage:create(),
+    node(Id, Predecessor, Successor, Next, Store, Replica).
 
 connect(Id, nil) ->
     % We are the first node, so we are our own successor
@@ -40,61 +41,64 @@ connect(_Id, Peer) ->
 
 % A Peer will be: {Key, Ref, Pid}
 
-node(Id, Predecessor, Successor, Next, Store) ->
+node(Id, Predecessor, Successor, Next, Store, Replica) ->
     receive
         % Peer needs to know our key
         {key, Qref, Peer} ->
             Peer ! {Qref, Id},
-            node(Id, Predecessor, Successor, Next, Store);
+            node(Id, Predecessor, Successor, Next, Store, Replica);
         % New node informs us of its existence
         {notify, New} ->
             {Pred, Keep} = notify(New, Id, Predecessor, Store),
-            node(Id, Pred, Successor, Next, Keep);
+            node(Id, Pred, Successor, Next, Keep, Replica);
         % Predecessor needs to know our predecessor
         {request, Peer} ->
             request(Peer, Predecessor, Next),
-            node(Id, Predecessor, Successor, Next, Store);
+            node(Id, Predecessor, Successor, Next, Store, Replica);
         % Syccessor informs us about it's predecessor
         {status, Pred, Nx} ->
             {Succ, Nxt} = stabilize(Pred, Nx, Id, Successor),
-            node(Id, Predecessor, Succ, Nxt, Store);
+            node(Id, Predecessor, Succ, Nxt, Store, Replica);
         stabilize ->
             stabilize(Successor),
-            node(Id, Predecessor, Successor, Next, Store);
+            node(Id, Predecessor, Successor, Next, Store, Replica);
         info ->
             io:format("Node ~w: Predecessor: ~w, Successor: ~w~n", [Id, Predecessor, Successor]),
-            node(Id, Predecessor, Successor, Next, Store);
+            node(Id, Predecessor, Successor, Next, Store, Replica);
         die ->
             io:format("Node ~w: I'm being forced to die~n", [Id]),
             ok;
         probe ->
             create_probe(Id, Successor),
-            node(Id, Predecessor, Successor, Next, Store);
-        {probe, Id, Nodes, T} ->
-            remove_probe(T, Nodes),
-            node(Id, Predecessor, Successor, Next, Store);
-        {probe, Ref, Nodes, T} ->
-            forward_probe(Ref, T, Nodes, Successor),
-            node(Id, Predecessor, Successor, Next, Store);
+            node(Id, Predecessor, Successor, Next, Store, Replica);
+        {probe, Id, Nodes, T, KeyCounts} ->
+            remove_probe(T, Nodes, KeyCounts, Store),
+            node(Id, Predecessor, Successor, Next, Store, Replica);
+        {probe, Ref, Nodes, T, KeyCounts} ->
+            forward_probe(Ref, T, Nodes, KeyCounts, Successor, Store),
+            node(Id, Predecessor, Successor, Next, Store, Replica);
         % Qref is used to tag the return message to the Client.
         % Client will be able to identify the reply message
         {add, Key, Value, Qref, Client} ->
             Added = add(Key, Value, Qref, Client, Id, Predecessor, Successor, Store),
-            node(Id, Predecessor, Successor, Next, Added);
+            node(Id, Predecessor, Successor, Next, Added, Replica);
         {lookup, Key, Qref, Client} ->
             lookup(Key, Qref, Client, Id, Predecessor, Successor, Store),
-            node(Id, Predecessor, Successor, Next, Store);
+            node(Id, Predecessor, Successor, Next, Store, Replica);
         {handover, Elements} ->
             % Merge received elements into our store (Entries, Store)
             Merged = storage:merge(Elements, Store),
-            node(Id, Predecessor, Successor, Next, Merged);
+            node(Id, Predecessor, Successor, Next, Merged, Replica);
         {'DOWN', Ref, process, _, _} ->
             ?LOG andalso io:format("Node ~w: Detected node down (Ref=~p)~n", [Id, Ref]),
             {Pred, Succ, Nxt} = down(Ref, Predecessor, Successor, Next),
-            node(Id, Pred, Succ, Nxt, Store);
+            node(Id, Pred, Succ, Nxt, Store, Replica);
+        {replicate, Key, Value} ->
+            AddedReplica = storage:add(Key, Value, Replica),
+            node(Id, Predecessor, Successor, Next, Store, AddedReplica);
         _ ->
             io:format("Node ~w: Unexpected message~n", [Id]),
-            node(Id, Predecessor, Successor, Next, Store)
+            node(Id, Predecessor, Successor, Next, Store, Replica)
     end.
 
 % Send stabilization message after a timer
@@ -173,22 +177,29 @@ request(Peer, Predecessor, Next) ->
 create_probe(Id, Successor) ->
     {_Skey, _Sref, SPid} = Successor,
     T = erlang:system_time(microsecond),
-    SPid ! {probe, Id, [], T}.  % Start with empty list
+    SPid ! {probe, Id, [], T, []}.  % Start with empty node and key count lists
 
 % Remove (complete) a probe that came back to us
-remove_probe(T, Nodes) ->
+remove_probe(T, Nodes, KeyCounts, Store) ->
     Time = erlang:system_time(microsecond) - T,
     % Nodes list already contains all nodes except us, so just add ourselves
     AllNodes = [self() | Nodes],
+    AllKeyCounts = [storage:size(Store) | KeyCounts],
+    TotalKeys = lists:sum(AllKeyCounts),
     io:format("Probe completed in ~w microseconds. Nodes in ring: ~w~n",
               [Time, lists:reverse(AllNodes)]),
-    io:format("Number of nodes: ~w~n", [length(AllNodes)]).
+    io:format("Number of nodes: ~w~n", [length(AllNodes)]),
+    io:format("Total number of keys in ring: ~w~n", [TotalKeys]),
+    lists:foreach(fun({Node, KeyCount}) -> io:format("Node: ~p, Keys: ~p~n", [Node, KeyCount])
+                  end,
+                  lists:reverse(
+                      lists:zip(AllNodes, AllKeyCounts))).
 
 % Forward a probe that is not ours to our successor
-forward_probe(Ref, T, Nodes, Successor) ->
+forward_probe(Ref, T, Nodes, KeyCounts, Successor, Store) ->
     {_, _, Spid} = Successor,
     ?LOG andalso io:format("Node ~w: Got a probe from ~w~n", [self(), Ref]),
-    Spid ! {probe, Ref, [self() | Nodes], T}.
+    Spid ! {probe, Ref, [self() | Nodes], T, [storage:size(Store) | KeyCounts]}.
 
 %% Add and Lookup functions
 
@@ -197,7 +208,10 @@ add(Key, Value, Qref, Client, Id, {Pkey, _, _}, {_, _, Spid}, Store) ->
         true ->
             Client ! {Qref, ok},
             ?LOG andalso io:format("Node ~w: Adding key ~w with value ~w~n", [Id, Key, Value]),
-            storage:add(Key, Value, Store);
+            storage:add(Key, Value, Store),
+
+            % Now we send it to out successor to replicate
+            Spid ! {replicate, Key, Value};
         false ->
             ?LOG
             andalso io:format("Node ~w: Forwarding add request for key ~w to client ~w~n",

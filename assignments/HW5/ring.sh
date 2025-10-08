@@ -11,7 +11,14 @@ WHITE='\033[1;37m'
 BOLD='\033[1m'
 NC='\033[0m' # No Color
 
-# Get current working directory early for safer matching
+
+# Get module name from command line argument
+if [ -z "$1" ]; then
+    echo -e "${RED}❌ Please provide the module name as the first argument (e.g., node2, node4, etc).${NC}"
+    exit 1
+fi
+MODULE_NAME="$1"
+
 CURRENT_DIR="$(pwd)"
 echo -e "${BLUE}📂 Working directory: ${CYAN}$CURRENT_DIR${NC}"
 
@@ -56,11 +63,12 @@ fi
 
 echo -e "${GREEN}✅ Compilation successful!${NC}"
 
+
 BEAM_DIR="$CURRENT_DIR/bin"
-EVAL_APPLE="ring:apple()"
-EVAL_BANANA="ring:banana()"
-EVAL_CHERRY="ring:cherry()"
-EVAL_PEAR="ring:pear()"
+EVAL_APPLE="ring:apple($MODULE_NAME)"
+EVAL_BANANA="ring:banana($MODULE_NAME)"
+EVAL_CHERRY="ring:cherry($MODULE_NAME)"
+EVAL_PEAR="ring:pear($MODULE_NAME)"
 
 APPLE_CMD="cd '$CURRENT_DIR' && erl -pa '$BEAM_DIR' -setcookie 1234 -sname apple -eval '$EVAL_APPLE'"
 BANANA_CMD="cd '$CURRENT_DIR' && erl -pa '$BEAM_DIR' -setcookie 1234 -sname banana -eval '$EVAL_BANANA'"
