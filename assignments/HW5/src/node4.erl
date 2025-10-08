@@ -301,6 +301,12 @@ down(Ref, {_, Ref, _}, Successor, Next, Store, Replica) ->
     MergedStore = storage:merge(Replica, Store),
     ?LOG andalso io:format("Node: After merge, store size=~w~n", [storage:size(MergedStore)]),
     NewReplica = storage:create(),
+
+    % Re-replicate the merged store to our successor to maintain replication invariant
+    {_, _, Spid} = Successor,
+    ?LOG andalso io:format("Node: Re-replicating merged store to successor~n"),
+    storage:foreach(fun(Key, Value) -> Spid ! {replicate, Key, Value} end, MergedStore),
+
     {nil, Successor, Next, MergedStore, NewReplica};
 down(Ref, nil, {_, Ref, _}, nil, Store, Replica) ->
     % Successor died, we have no predecessor or next - we're alone
