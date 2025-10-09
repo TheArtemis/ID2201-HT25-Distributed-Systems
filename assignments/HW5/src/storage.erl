@@ -28,7 +28,7 @@ split(From, To, Store) ->
                 Store).
 
 merge(Entries, Store) ->
-    lists:foldl(fun({Key, Value}, Acc) -> add(Key, Value, Acc) end, Store, Entries).
+    lists:foldl(fun({Key, Value}, Acc) -> add_idm(Key, Value, Acc) end, Store, Entries).
 
 size(Store) ->
     length(Store).
